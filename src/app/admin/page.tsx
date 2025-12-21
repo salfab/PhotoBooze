@@ -15,6 +15,7 @@ import {
   IconButton,
   Tooltip,
   Fab,
+  TextField,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -23,6 +24,9 @@ import {
   Download as DownloadIcon,
   Delete as DeleteIcon,
   Stop as StopIcon,
+  Edit as EditIcon,
+  Check as CheckIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import QRCode from 'qrcode';
 import styles from './page.module.css';
@@ -42,6 +46,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
+  const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
+  const [editedName, setEditedName] = useState<string>('');
 
   const loadParties = useCallback(async () => {
     try {
@@ -136,6 +142,40 @@ export default function AdminPage() {
     }
   }, []);
 
+  const updatePartyName = useCallback(async (partyId: string, newName: string) => {
+    try {
+      const response = await fetch(`/api/parties/${partyId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update party name');
+      }
+
+      const updatedParty = await response.json();
+      setParties(prev =>
+        prev.map(p => (p.id === partyId ? { ...p, name: updatedParty.name } : p))
+      );
+      setEditingPartyId(null);
+      setEditedName('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update party name');
+    }
+  }, []);
+
+  const startEditingName = useCallback((party: Party) => {
+    setEditingPartyId(party.id);
+    setEditedName(party.name || '');
+  }, []);
+
+  const cancelEditingName = useCallback(() => {
+    setEditingPartyId(null);
+    setEditedName('');
+  }, []);
+
   const deleteParty = useCallback(async (partyId: string) => {
     if (!confirm('Are you sure you want to delete this party and all its photos?')) {
       return;
@@ -191,13 +231,57 @@ export default function AdminPage() {
           <Card key={party.id} className={styles.partyCard}>
             <CardContent>
               <Box className={styles.partyHeader}>
-                <Box>
-                  <Typography variant="h6" component="h2">
-                    {party.name || `Party ${party.id.slice(0, 8)}...`}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Created {new Date(party.createdAt).toLocaleString()}
-                  </Typography>
+                <Box sx={{ flex: 1 }}>
+                  {editingPartyId === party.id ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TextField
+                        value={editedName}
+                        onChange={(e) => setEditedName(e.target.value)}
+                        size="small"
+                        autoFocus
+                        fullWidth
+                        placeholder="Enter party name"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            updatePartyName(party.id, editedName);
+                          } else if (e.key === 'Escape') {
+                            cancelEditingName();
+                          }
+                        }}
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => updatePartyName(party.id, editedName)}
+                        color="primary"
+                      >
+                        <CheckIcon />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={cancelEditingName}
+                      >
+                        <CloseIcon />
+                      </IconButton>
+                    </Box>
+                  ) : (
+                    <>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="h6" component="h2">
+                          {party.name || `Party ${party.id.slice(0, 8)}...`}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => startEditingName(party)}
+                          sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Created {new Date(party.createdAt).toLocaleString()}
+                      </Typography>
+                    </>
+                  )}
                 </Box>
                 <Chip
                   label={party.status}

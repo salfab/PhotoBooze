@@ -1,6 +1,6 @@
 /**
  * GET /api/parties/[partyId] - Get party details
- * PATCH /api/parties/[partyId] - Update party status (close)
+ * PATCH /api/parties/[partyId] - Update party name or status
  * DELETE /api/parties/[partyId] - Delete party and all data
  */
 
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { data: party, error } = await supabase
       .from('parties')
-      .select('id, status, created_at')
+      .select('id, name, status, created_at')
       .eq('id', partyId)
       .single();
 
@@ -43,6 +43,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({
       id: party.id,
+      name: party.name,
       status: party.status,
       createdAt: party.created_at,
       photoCount: photoCount ?? 0,
@@ -63,13 +64,35 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const supabase = createServerClient();
 
-    // Only allow status updates
-    if (body.status && ['active', 'closed'].includes(body.status)) {
+    // Handle name updates
+    if (body.name !== undefined) {
+      if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
+        return NextResponse.json(
+          { error: 'Name is required and must be a non-empty string' },
+          { status: 400 }
+        );
+      }
+
+      // Check if name is already taken by another party
+      const { data: existingParty } = await supabase
+        .from('parties')
+        .select('id')
+        .eq('name', body.name.trim())
+        .neq('id', partyId)
+        .single();
+
+      if (existingParty) {
+        return NextResponse.json(
+          { error: 'This name is already taken by another party' },
+          { status: 409 }
+        );
+      }
+
       const { data: party, error } = await supabase
         .from('parties')
-        .update({ status: body.status })
+        .update({ name: body.name.trim() })
         .eq('id', partyId)
-        .select('id, status, created_at')
+        .select('id, name, status, created_at')
         .single();
 
       if (error || !party) {
@@ -81,6 +104,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
       return NextResponse.json({
         id: party.id,
+        name: party.name,
+        status: party.status,
+        createdAt: party.created_at,
+      });
+    }
+
+    // Handle status updates
+    if (body.status && ['active', 'closed'].includes(body.status)) {
+      const { data: party, error } = await supabase
+        .from('parties')
+        .update({ status: body.status })
+        .eq('id', partyId)
+        .select('id, name, status, created_at')
+        .single();
+
+      if (error || !party) {
+        return NextResponse.json(
+          { error: 'Party not found' },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        id: party.id,
+        name: party.name,
         status: party.status,
         createdAt: party.created_at,
       });
