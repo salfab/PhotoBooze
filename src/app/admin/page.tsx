@@ -14,6 +14,7 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  Fab,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -184,17 +185,6 @@ export default function AdminPage() {
         </Alert>
       )}
 
-      <Button
-        variant="contained"
-        size="large"
-        startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <AddIcon />}
-        onClick={createParty}
-        disabled={loading}
-        className={styles.createButton}
-      >
-        {loading ? 'Creating...' : 'Create New Party'}
-      </Button>
-
       <Stack spacing={3} className={styles.partyList}>
         {parties.map(party => (
           <Card key={party.id} className={styles.partyCard}>
@@ -328,6 +318,17 @@ export default function AdminPage() {
           </Box>
         )}
       </Stack>
+
+      <Fab
+        color="primary"
+        aria-label="create party"
+        onClick={createParty}
+        disabled={loading}
+        className={styles.fab}
+        size="large"
+      >
+        {loading ? <CircularProgress size={24} color="inherit" /> : <AddIcon />}
+      </Fab>
     </Container>
   );
 }
