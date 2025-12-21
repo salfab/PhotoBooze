@@ -580,17 +580,16 @@ export default function UploadPage() {
         </Box>
       ) : pendingPhoto ? (
         <Box className={styles.previewContainer}>
-          <Box className={styles.previewHeader}>
-            <IconButton
-              onClick={handleCancelPhoto}
-              className={styles.closeButton}
-              disabled={isUploading}
-            >
-              <CloseIcon />
-            </IconButton>
-          </Box>
-
           <Card className={styles.previewCard}>
+            <Box className={styles.previewHeader}>
+              <IconButton
+                onClick={handleCancelPhoto}
+                className={styles.closeButton}
+                disabled={isUploading}
+              >
+                <CloseIcon />
+              </IconButton>
+            </Box>
             <Box className={styles.polaroidImageContainer}>
               <CardMedia
                 component="img"
