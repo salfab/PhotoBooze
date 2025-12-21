@@ -591,37 +591,39 @@ export default function UploadPage() {
           </Box>
 
           <Card className={styles.previewCard}>
-            <CardMedia
-              component="img"
-              image={pendingPhoto.preview}
-              alt="Preview"
-              className={styles.previewImage}
-            />
+            <Box className={styles.polaroidImageContainer}>
+              <CardMedia
+                component="img"
+                image={pendingPhoto.preview}
+                alt="Preview"
+                className={styles.previewImage}
+              />
+            </Box>
+            <Box className={styles.polaroidCaption}>
+              <TextField
+                inputRef={commentInputRef}
+                fullWidth
+                multiline
+                rows={2}
+                placeholder="Add a comment (optional)..."
+                value={pendingPhoto.comment}
+                onChange={handleCommentChange}
+                disabled={isUploading}
+                className={styles.commentField}
+                variant="outlined"
+                size="small"
+              />
+              <IconButton
+                color="primary"
+                size="large"
+                onClick={handleSendPhoto}
+                disabled={isUploading}
+                className={styles.sendButton}
+              >
+                {isUploading ? <CircularProgress size={24} /> : <SendIcon />}
+              </IconButton>
+            </Box>
           </Card>
-
-          <Box className={styles.commentSection}>
-            <TextField
-              inputRef={commentInputRef}
-              fullWidth
-              multiline
-              rows={2}
-              placeholder="Add a comment (optional)..."
-              value={pendingPhoto.comment}
-              onChange={handleCommentChange}
-              disabled={isUploading}
-              className={styles.commentField}
-              variant="outlined"
-            />
-            <IconButton
-              color="primary"
-              size="large"
-              onClick={handleSendPhoto}
-              disabled={isUploading}
-              className={styles.sendButton}
-            >
-              {isUploading ? <CircularProgress size={24} /> : <SendIcon />}
-            </IconButton>
-          </Box>
         </Box>
       ) : null}
     </>
