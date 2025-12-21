@@ -33,6 +33,20 @@ export default function JoinPage() {
   // Validate party and token on mount
   useEffect(() => {
     async function validateParty() {
+      // Check for existing session first
+      try {
+        const sessionRes = await fetch('/api/session');
+        if (sessionRes.ok) {
+          const session = await sessionRes.json();
+          if (session.authenticated && session.partyId === partyId) {
+            router.replace(`/upload/${partyId}`);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('Session check failed', e);
+      }
+
       if (!token) {
         setError('Invalid or missing join link');
         setValidating(false);

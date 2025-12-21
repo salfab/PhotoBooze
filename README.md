@@ -50,12 +50,19 @@ A party photo sharing app where guests scan a QR code to upload photos, which ar
    NEXT_PUBLIC_APP_URL=http://localhost:3000
    ```
 
-4. **Run dev server**:
+4. **Setup storage bucket**:
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
+   SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key> \
+   node scripts/setup-storage.mjs
+   ```
+
+5. **Run dev server**:
    ```bash
    pnpm dev
    ```
 
-5. **Open** http://localhost:3000/admin to create a party
+6. **Open** http://localhost:3000/admin to create a party
 
 ## Routes
 

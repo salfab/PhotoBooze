@@ -188,11 +188,18 @@ export default function AdminPage() {
 
               {qrDataUrls[party.id] && (
                 <Box className={styles.qrContainer}>
-                  <img
-                    src={qrDataUrls[party.id]}
-                    alt={`QR code for party ${party.id}`}
-                    className={styles.qrCode}
-                  />
+                  <a
+                    href={`/join/${party.id}?token=${party.joinToken}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Click to open join page"
+                  >
+                    <img
+                      src={qrDataUrls[party.id]}
+                      alt={`QR code for party ${party.id}`}
+                      className={styles.qrCode}
+                    />
+                  </a>
                   <Typography variant="caption" color="text.secondary">
                     Guests scan this QR code to join
                   </Typography>
