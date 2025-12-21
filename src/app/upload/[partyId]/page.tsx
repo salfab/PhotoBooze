@@ -654,7 +654,7 @@ export default function UploadPage() {
           <Typography variant="h5" component="h1" gutterBottom>
             Hi {displayName}! 👋
           </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
+          <Typography variant="body2" gutterBottom sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
             {uploadedPhotos.length} {uploadedPhotos.length === 1 ? 'photo' : 'photos'} shared
           </Typography>
         </Box>
