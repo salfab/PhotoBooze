@@ -1,12 +1,9 @@
 -- PhotoBooze Initial Schema
 -- Tables: parties, uploaders, photos
 
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- Parties table
 CREATE TABLE parties (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'closed')),
     closed_at TIMESTAMPTZ,
@@ -18,7 +15,7 @@ CREATE INDEX idx_parties_status ON parties(status);
 
 -- Uploaders table
 CREATE TABLE uploaders (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     party_id UUID NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     display_name TEXT
@@ -29,7 +26,7 @@ CREATE INDEX idx_uploaders_party_id ON uploaders(party_id);
 
 -- Photos table
 CREATE TABLE photos (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     party_id UUID NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
     uploader_id UUID NOT NULL REFERENCES uploaders(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
