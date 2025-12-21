@@ -7,11 +7,7 @@ export default function Home() {
       <main className={styles.main}>
         <div className={styles.logoContainer}>
           <img src="/logo.png" alt="PhotoBooze" className={styles.logo} />
-        </div>
-        <h1 className={styles.title}>PhotoBooze</h1>
-        <p className={styles.description}>
-          Party photo sharing with QR code guest access
-        </p>
+        </div>        
         <div className={styles.links}>
           <Link href="/admin" className={styles.link}>
             Host a Party
