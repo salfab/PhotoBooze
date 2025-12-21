@@ -14,8 +14,6 @@ import {
   Fab,
   Card,
   CardMedia,
-  Dialog,
-  DialogContent,
 } from '@mui/material';
 import {
   CameraAlt as CameraIcon,
@@ -222,7 +220,6 @@ export default function UploadPage() {
         ref={cameraInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleInputChange}
         className={styles.hiddenInput}
       />
@@ -235,7 +232,7 @@ export default function UploadPage() {
         className={styles.hiddenInput}
       />
 
-      {!pendingPhoto && (
+      {!pendingPhoto ? (
         <>
           <Box className={styles.buttonContainer}>
             <Fab
@@ -275,63 +272,50 @@ export default function UploadPage() {
             Open TV Display
           </Button>
         </>
+      ) : (
+        <Box className={styles.previewContainer}>
+          <Box className={styles.previewHeader}>
+            <IconButton
+              onClick={handleCancelPhoto}
+              className={styles.closeButton}
+              disabled={isUploading}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          <Card className={styles.previewCard}>
+            <CardMedia
+              component="img"
+              image={pendingPhoto.preview}
+              alt="Preview"
+              className={styles.previewImage}
+            />
+          </Card>
+
+          <Box className={styles.commentSection}>
+            <TextField
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Add a comment (optional)..."
+              value={pendingPhoto.comment}
+              onChange={handleCommentChange}
+              disabled={isUploading}
+              className={styles.commentField}
+            />
+            <IconButton
+              color="primary"
+              size="large"
+              onClick={handleSendPhoto}
+              disabled={isUploading}
+              className={styles.sendButton}
+            >
+              {isUploading ? <CircularProgress size={24} /> : <SendIcon />}
+            </IconButton>
+          </Box>
+        </Box>
       )}
-
-      {/* Photo preview and comment dialog */}
-      <Dialog
-        open={!!pendingPhoto}
-        onClose={handleCancelPhoto}
-        maxWidth="sm"
-        fullWidth
-        className={styles.photoDialog}
-      >
-        <DialogContent className={styles.dialogContent}>
-          {pendingPhoto && (
-            <>
-              <Box className={styles.previewHeader}>
-                <IconButton
-                  onClick={handleCancelPhoto}
-                  className={styles.closeButton}
-                  disabled={isUploading}
-                >
-                  <CloseIcon />
-                </IconButton>
-              </Box>
-
-              <Card className={styles.previewCard}>
-                <CardMedia
-                  component="img"
-                  image={pendingPhoto.preview}
-                  alt="Preview"
-                  className={styles.previewImage}
-                />
-              </Card>
-
-              <Box className={styles.commentSection}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={2}
-                  placeholder="Add a comment (optional)..."
-                  value={pendingPhoto.comment}
-                  onChange={handleCommentChange}
-                  disabled={isUploading}
-                  className={styles.commentField}
-                />
-                <IconButton
-                  color="primary"
-                  size="large"
-                  onClick={handleSendPhoto}
-                  disabled={isUploading}
-                  className={styles.sendButton}
-                >
-                  {isUploading ? <CircularProgress size={24} /> : <SendIcon />}
-                </IconButton>
-              </Box>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
     </Container>
   );
 }
