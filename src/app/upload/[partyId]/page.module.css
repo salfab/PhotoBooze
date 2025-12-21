@@ -1,0 +1,30 @@
+.container {
+  min-height: 100vh;
+  padding: 2rem 1rem;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.icon {
+  font-size: 3rem !important;
+  color: var(--primary-color, #1976d2);
+  margin-bottom: 1rem;
+}
+
+.uploadArea {
+  background-color: #f5f5f5;
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 3rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.uploadArea:hover {
+  border-color: var(--primary-color, #1976d2);
+  background-color: #e3f2fd;
+}
