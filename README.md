@@ -228,30 +228,148 @@ PhotoBooze/
 
 ## Deployment (Vercel + Supabase Cloud)
 
-### 1. Set up Supabase Cloud
+PhotoBooze uses **two services** for production:
+- **Supabase Cloud** - Database, file storage, and real-time features
+- **Vercel** - Hosts the Next.js application
 
-1. Create a project at [supabase.com](https://supabase.com)
-2. Get your project credentials (Project Settings → API)
-3. Run migrations:
-   ```bash
-   npx supabase link --project-ref <your-project-ref>
-   npx supabase db push
-   ```
-4. The storage bucket will be created automatically by the migrations
+Both have generous free tiers suitable for party photo apps.
 
-### 2. Deploy to Vercel
+### Prerequisites
 
-1. Push your code to GitHub
-2. Import project to [Vercel](https://vercel.com)
-3. Add environment variables:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
-   SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
-   SESSION_SECRET=<generate-random-32+-char-string>
-   NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
-   ```
-4. Deploy!
+- GitHub account (with this repo pushed)
+- [Supabase](https://supabase.com) account (free)
+- [Vercel](https://vercel.com) account (free, use GitHub OAuth)
+
+---
+
+### Step 1: Create Supabase Cloud Project
+
+1. **Sign up** at [supabase.com](https://supabase.com) (use GitHub OAuth for quick setup)
+
+2. **Create a new project**:
+   - Click "New Project"
+   - Choose an organization
+   - Set project name: `photobooze` (or your preference)
+   - Set a strong database password (save it!)
+   - Select region closest to your users
+   - Click "Create new project" and wait ~2 minutes
+
+3. **Get your project credentials** (Settings → API):
+   - `Project URL` - e.g., `https://xxxxx.supabase.co`
+   - `anon public` key - starts with `eyJ...`
+   - `service_role` key - starts with `eyJ...` (keep this secret!)
+   - `Project Reference ID` - the `xxxxx` part from your URL
+
+---
+
+### Step 2: Push Database Schema to Supabase Cloud
+
+```bash
+# Login to Supabase CLI (opens browser)
+npx supabase login
+
+# Link your local project to the cloud project
+npx supabase link --project-ref <your-project-ref>
+
+# Push your database schema
+npx supabase db push
+```
+
+This creates all tables and enables Realtime.
+
+---
+
+### Step 3: Create Storage Bucket
+
+The storage bucket needs to be created manually in Supabase Cloud:
+
+1. Go to your Supabase Dashboard → **Storage**
+2. Click **"New bucket"**
+3. Name: `photos`
+4. Check **"Public bucket"**
+5. Click **Create bucket**
+
+---
+
+### Step 4: Deploy to Vercel
+
+#### Option A: Via Vercel CLI (Recommended)
+
+```bash
+# Install and login to Vercel CLI
+npx vercel login
+
+# Deploy (first time creates the project)
+npx vercel --yes
+
+# Add environment variables
+npx vercel env add NEXT_PUBLIC_SUPABASE_URL production
+# Enter: https://your-project-ref.supabase.co
+
+npx vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production
+# Enter: your anon key
+
+npx vercel env add SUPABASE_SERVICE_ROLE_KEY production
+# Enter: your service role key (keep secret!)
+
+# Deploy to production
+npx vercel --prod
+```
+
+#### Option B: Via Vercel Dashboard
+
+1. Go to [vercel.com](https://vercel.com) → **Add New Project**
+2. Import your GitHub repository
+3. Add environment variables before deploying:
+
+| Variable | Value |
+|----------|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxxx.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Your service role key |
+
+4. Click **Deploy**
+
+---
+
+### Step 5: Verify Deployment
+
+1. Open your Vercel URL (e.g., `https://photobooze.vercel.app`)
+2. Go to `/admin` and create a test party
+3. Scan the QR code with your phone
+4. Upload a test photo
+5. Check the TV view updates in real-time
+
+---
+
+### Environment Variables Reference
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anonymous/public key |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service role key (server-side only) |
+
+> ⚠️ **Security**: Never commit secrets to git! The `.gitignore` already excludes `.env*` files.
+
+---
+
+### Updating Your Deployment
+
+After making changes:
+
+```bash
+# Commit changes
+git add . && git commit -m "your changes"
+
+# Push to GitHub
+git push origin master
+
+# Redeploy to Vercel
+npx vercel --prod
+```
+
+Or connect Vercel to your GitHub repo for automatic deployments on push.
 
 ## Contributing
 
