@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { generateJoinToken, hashJoinToken } from '@/lib/auth/tokens';
+import { generateUniquePartyName } from '@/lib/party-names';
 
 export async function GET() {
   try {
@@ -14,7 +15,7 @@ export async function GET() {
     // Get all parties
     const { data: parties, error } = await supabase
       .from('parties')
-      .select('id, status, created_at')
+      .select('id, name, status, created_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -40,6 +41,7 @@ export async function GET() {
 
         return {
           id: party.id,
+          name: party.name,
           status: party.status,
           createdAt: party.created_at,
           photoCount: photoCount ?? 0,
@@ -66,14 +68,25 @@ export async function POST() {
     const joinToken = generateJoinToken();
     const joinTokenHash = hashJoinToken(joinToken);
 
+    // Generate a unique party name
+    const partyName = await generateUniquePartyName(async (name) => {
+      const { data } = await supabase
+        .from('parties')
+        .select('id')
+        .eq('name', name)
+        .single();
+      return data !== null;
+    });
+
     // Create the party
     const { data: party, error } = await supabase
       .from('parties')
       .insert({
+        name: partyName,
         status: 'active',
         join_token_hash: joinTokenHash,
       })
-      .select('id, status, created_at')
+      .select('id, name, status, created_at')
       .single();
 
     if (error) {
@@ -86,6 +99,7 @@ export async function POST() {
 
     return NextResponse.json({
       id: party.id,
+      name: party.name,
       status: party.status,
       createdAt: party.created_at,
       joinToken, // Only returned once - client should save/display this

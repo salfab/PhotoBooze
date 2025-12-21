@@ -29,6 +29,7 @@ import styles from './page.module.css';
 
 interface Party {
   id: string;
+  name?: string | null;
   status: 'active' | 'closed';
   createdAt: string;
   joinToken?: string;
@@ -192,7 +193,7 @@ export default function AdminPage() {
               <Box className={styles.partyHeader}>
                 <Box>
                   <Typography variant="h6" component="h2">
-                    Party {party.id.slice(0, 8)}...
+                    {party.name || `Party ${party.id.slice(0, 8)}...`}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Created {new Date(party.createdAt).toLocaleString()}
@@ -224,7 +225,7 @@ export default function AdminPage() {
                   >
                     <img
                       src={qrDataUrls[party.id]}
-                      alt={`QR code for party ${party.id}`}
+                      alt={`QR code for ${party.name || `party ${party.id.slice(0, 8)}`}`}
                       className={styles.qrCode}
                     />
                   </a>
