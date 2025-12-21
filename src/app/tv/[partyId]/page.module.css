@@ -228,7 +228,15 @@
 
 .qrImage {
   display: block;
-  width: 300px;
-  height: 300px;
+  width: 150px;
+  height: 150px;
   border-radius: 8px;
+}
+
+.qrCaption {
+  display: block;
+  text-align: center;
+  margin-top: 0.5rem;
+  color: #666;
+  font-size: 0.75rem;
 }

@@ -428,6 +428,9 @@ export default function TvPage() {
         <Box className={styles.qrOverlay}>
           <Box className={styles.qrCard}>
             <img src={qrCodeUrl} alt="Join Party QR Code" className={styles.qrImage} />
+            <Typography variant="caption" className={styles.qrCaption}>
+              scan to join
+            </Typography>
           </Box>
         </Box>
       )}

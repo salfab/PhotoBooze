@@ -85,6 +85,15 @@ export default function UploadPage() {
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const supabaseRef = useRef(createClient());
 
+  // Sync activeTab with URL hash
+  useEffect(() => {
+    const hash = window.location.hash.slice(1); // Remove the '#'
+    if (hash === 'camera') setActiveTab(0);
+    else if (hash === 'remote') setActiveTab(1);
+    else if (hash === 'share') setActiveTab(2);
+    else if (!hash) setActiveTab(0); // Default to camera
+  }, []);
+
   // Get user's display name from session
   useEffect(() => {
     async function getSessionInfo() {
@@ -709,22 +718,37 @@ export default function UploadPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
             Scan this QR code to join the party
           </Typography>
-          <Box sx={{ 
-            backgroundColor: 'white', 
-            padding: '1rem', 
-            borderRadius: '16px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-          }}>
-            <img src={qrCodeUrl} alt="Party QR Code" className={styles.qrCodeImage} />
-          </Box>
-          <Button
-            variant="contained"
-            size="large"
+          <Box 
             onClick={sendShowQRCommand}
-            sx={{ mt: 3 }}
+            sx={{ 
+              backgroundColor: 'white', 
+              padding: '1rem', 
+              borderRadius: '16px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                boxShadow: '0 6px 16px rgba(0, 0, 0, 0.15)',
+                transform: 'translateY(-2px)',
+              },
+              '&:active': {
+                transform: 'translateY(0)',
+              },
+            }}
           >
-            Show QR on TV (60s)
-          </Button>
+            <img src={qrCodeUrl} alt="Party QR Code" className={styles.qrCodeImage} />
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                mt: 1.5,
+                textAlign: 'center',
+                color: 'primary.main',
+                fontWeight: 500,
+              }}
+            >
+              Tap to show on TV
+            </Typography>
+          </Box>
         </>
       ) : (
         <CircularProgress />
@@ -787,7 +811,11 @@ export default function UploadPage() {
       <Paper className={styles.bottomNav} elevation={3}>
         <BottomNavigation
           value={activeTab}
-          onChange={(_, newValue) => setActiveTab(newValue)}
+          onChange={(_, newValue) => {
+            setActiveTab(newValue);
+            const tabs = ['camera', 'remote', 'share'];
+            window.history.pushState(null, '', `#${tabs[newValue]}`);
+          }}
           showLabels
         >
           <BottomNavigationAction 
