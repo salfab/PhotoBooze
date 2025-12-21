@@ -76,6 +76,7 @@ export default function UploadPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [tvState, setTvState] = useState<TVState | null>(null);
+  const [partyName, setPartyName] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -94,6 +95,13 @@ export default function UploadPage() {
             if (uploaderRes.ok) {
               const uploader = await uploaderRes.json();
               setDisplayName(uploader.display_name || 'Guest');
+            }
+            
+            // Fetch party details to get party name
+            const partyRes = await fetch(`/api/parties/${partyId}`);
+            if (partyRes.ok) {
+              const party = await partyRes.json();
+              setPartyName(party.name || null);
             }
           } else {
             router.push('/');
@@ -654,6 +662,11 @@ export default function UploadPage() {
     <Box className={styles.pageContainer}>
       <Container maxWidth="sm" className={styles.container}>
         <Box className={styles.header}>
+          {partyName && (
+            <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.8)', mb: 1 }}>
+              🎉 {partyName}
+            </Typography>
+          )}
           <Typography variant="h5" component="h1" gutterBottom>
             Hi {displayName}! 👋
           </Typography>

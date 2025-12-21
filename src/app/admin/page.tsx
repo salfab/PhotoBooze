@@ -212,9 +212,17 @@ export default function AdminPage() {
   return (
     <Container maxWidth="md" className={styles.container}>
       <Box className={styles.header}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          PhotoBooze Admin
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <Box
+            component="img"
+            src="/logo.png"
+            alt="PhotoBooze"
+            sx={{ width: 48, height: 48 }}
+          />
+          <Typography variant="h4" component="h1">
+            PhotoBooze Admin
+          </Typography>
+        </Box>
         <Typography variant="body1" color="text.secondary" gutterBottom>
           Create and manage party photo sessions
         </Typography>

@@ -11,7 +11,7 @@ export function generatePartyName(): string {
   // Capitalize first letter of each word
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
   
-  return `${capitalize(adjective)}-${capitalize(noun)}`;
+  return `${capitalize(adjective)} ${capitalize(noun)}`;
 }
 
 /**
