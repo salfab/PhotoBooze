@@ -437,7 +437,7 @@ export default function UploadPage() {
             >
               <CameraIcon fontSize="large" />
             </Fab>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h6" gutterBottom sx={{ color: 'text.primary', opacity: 0.7 }}>
               Take a Photo
             </Typography>
             <Typography variant="body2" color="text.secondary" gutterBottom>

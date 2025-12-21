@@ -7,8 +7,9 @@
 // Constants
 const TV_MAX_WIDTH = 1920;
 const TV_MAX_HEIGHT = 1080;
-const TV_QUALITY = 0.85;
-const JPEG_QUALITY = 0.92;
+const TV_QUALITY = 0.8;
+const JPEG_QUALITY = 0.85;
+const ORIGINAL_MAX_SIZE = 2048; // Max dimension for original to stay under 4.5MB total
 
 /**
  * Check if a file is a HEIC/HEIF image.
@@ -66,17 +67,17 @@ function loadImage(blob: Blob): Promise<HTMLImageElement> {
 }
 
 /**
- * Resize an image to fit within TV dimensions (1920x1080).
+ * Resize an image to fit within specified dimensions.
  * Returns JPEG blob.
  */
-export async function resizeForTv(blob: Blob): Promise<Blob> {
+async function resizeImage(blob: Blob, maxWidth: number, maxHeight: number, quality: number): Promise<Blob> {
   const img = await loadImage(blob);
   
   let { width, height } = img;
   
-  // Calculate scaling factor to fit within TV dimensions
-  const scaleX = TV_MAX_WIDTH / width;
-  const scaleY = TV_MAX_HEIGHT / height;
+  // Calculate scaling factor to fit within dimensions
+  const scaleX = maxWidth / width;
+  const scaleY = maxHeight / height;
   const scale = Math.min(scaleX, scaleY, 1); // Don't upscale
   
   width = Math.round(width * scale);
@@ -105,13 +106,21 @@ export async function resizeForTv(blob: Blob): Promise<Blob> {
         if (result) {
           resolve(result);
         } else {
-          reject(new Error('Failed to create TV image blob'));
+          reject(new Error('Failed to create image blob'));
         }
       },
       'image/jpeg',
-      TV_QUALITY
+      quality
     );
   });
+}
+
+/**
+ * Resize an image to fit within TV dimensions (1920x1080).
+ * Returns JPEG blob.
+ */
+export async function resizeForTv(blob: Blob): Promise<Blob> {
+  return resizeImage(blob, TV_MAX_WIDTH, TV_MAX_HEIGHT, TV_QUALITY);
 }
 
 /**
@@ -155,6 +164,11 @@ export async function processImage(file: File): Promise<ProcessedImage> {
         originalExt = 'jpg';
     }
   }
+  
+  // Resize original if too large (to stay under Vercel's 4.5MB limit)
+  originalBlob = await resizeImage(originalBlob, ORIGINAL_MAX_SIZE, ORIGINAL_MAX_SIZE, JPEG_QUALITY);
+  originalMime = 'image/jpeg';
+  originalExt = 'jpg';
   
   // Create TV-sized version
   const tvBlob = await resizeForTv(originalBlob);

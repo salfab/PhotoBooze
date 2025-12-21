@@ -10,6 +10,11 @@ import { v4 as uuidv4 } from 'uuid';
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 
+// Configure route for larger payloads
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // 60 seconds max execution
+
 export async function POST(request: NextRequest) {
   try {
     // Verify session from cookie
