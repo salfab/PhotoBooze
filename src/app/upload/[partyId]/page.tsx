@@ -585,16 +585,16 @@ export default function UploadPage() {
       {tvState ? (
         <>
           <Box className={styles.remoteStatus}>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" sx={{ color: '#1a1a1a' }}>
               📷 Photo {tvState.currentIndex + 1} of {tvState.totalPhotos}
             </Typography>
             {tvState.uploaderName && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: '#1a1a1a' }}>
                 by {tvState.uploaderName}
               </Typography>
             )}
             {tvState.comment && (
-              <Typography variant="body2" color="text.secondary" fontStyle="italic">
+              <Typography variant="body2" sx={{ color: '#1a1a1a', fontStyle: 'italic' }}>
                 &ldquo;{tvState.comment}&rdquo;
               </Typography>
             )}
