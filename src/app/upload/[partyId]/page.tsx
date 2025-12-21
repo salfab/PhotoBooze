@@ -51,6 +51,9 @@ export default function UploadPage() {
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Get user's display name from session
   useEffect(() => {
@@ -135,8 +138,69 @@ export default function UploadPage() {
     setError(null);
   }, []);
 
-  const handleCameraClick = useCallback(() => {
-    cameraInputRef.current?.click();
+  const handleCameraClick = useCallback(async () => {
+    try {
+      setError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false,
+      });
+      
+      streamRef.current = stream;
+      setShowCamera(true);
+      
+      // Wait for next tick to ensure video element is rendered
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      console.error('Camera access error:', err);
+      setError('Could not access camera. Please check permissions.');
+      // Fallback to file input
+      cameraInputRef.current?.click();
+    }
+  }, []);
+
+  const handleCapturePhoto = useCallback(() => {
+    if (!videoRef.current || !streamRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.drawImage(video, 0, 0);
+    
+    // Convert canvas to blob
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      
+      const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      
+      // Stop camera
+      streamRef.current?.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+      setShowCamera(false);
+      
+      // Show preview
+      const preview = URL.createObjectURL(file);
+      setPendingPhoto({
+        file,
+        preview,
+        comment: '',
+      });
+    }, 'image/jpeg', 0.9);
+  }, []);
+
+  const handleCancelCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    streamRef.current = null;
+    setShowCamera(false);
   }, []);
 
   const handleGalleryClick = useCallback(() => {
@@ -189,6 +253,15 @@ export default function UploadPage() {
     }
   }, [pendingPhoto]);
 
+  // Cleanup camera stream on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
   const openTvView = useCallback(() => {
     window.open(`/tv/${partyId}`, '_blank');
   }, [partyId]);
@@ -232,7 +305,7 @@ export default function UploadPage() {
         className={styles.hiddenInput}
       />
 
-      {!pendingPhoto ? (
+      {!pendingPhoto && !showCamera ? (
         <>
           <Box className={styles.buttonContainer}>
             <Fab
@@ -272,7 +345,38 @@ export default function UploadPage() {
             Open TV Display
           </Button>
         </>
-      ) : (
+      ) : showCamera ? (
+        <Box className={styles.cameraContainer}>
+          <Box className={styles.previewHeader}>
+            <IconButton
+              onClick={handleCancelCamera}
+              className={styles.closeButton}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          <Box className={styles.videoContainer}>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className={styles.video}
+            />
+          </Box>
+
+          <Box className={styles.captureSection}>
+            <Fab
+              color="primary"
+              size="large"
+              onClick={handleCapturePhoto}
+              className={styles.captureButton}
+            >
+              <CameraIcon fontSize="large" />
+            </Fab>
+          </Box>
+        </Box>
+      ) : pendingPhoto ? (
         <Box className={styles.previewContainer}>
           <Box className={styles.previewHeader}>
             <IconButton
@@ -315,7 +419,7 @@ export default function UploadPage() {
             </IconButton>
           </Box>
         </Box>
-      )}
+      ) : null}
     </Container>
   );
 }

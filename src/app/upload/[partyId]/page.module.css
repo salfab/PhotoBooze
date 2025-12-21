@@ -93,3 +93,38 @@
 .sendButton {
   flex-shrink: 0;
 }
+
+.cameraContainer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  position: relative;
+}
+
+.videoContainer {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.captureSection {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
+.captureButton {
+  width: 80px !important;
+  height: 80px !important;
+}
