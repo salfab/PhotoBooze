@@ -215,16 +215,23 @@
 
 .remoteControls {
   display: flex;
-  gap: 2rem;
+  gap: 3rem;
   padding: 2rem;
   flex-wrap: wrap;
   justify-content: center;
 }
 
 .navButton {
-  width: 70px !important;
-  height: 70px !important;
+  width: 80px !important;
+  height: 80px !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.fullscreenSwitch {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
 }
 
 .remoteWaiting {

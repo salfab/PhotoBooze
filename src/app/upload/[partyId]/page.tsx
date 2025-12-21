@@ -17,6 +17,8 @@ import {
   BottomNavigation,
   BottomNavigationAction,
   Paper,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import {
   CameraAlt as CameraIcon,
@@ -28,7 +30,6 @@ import {
   SettingsRemote as RemoteIcon,
   NavigateBefore as PrevIcon,
   NavigateNext as NextIcon,
-  Fullscreen as FullscreenIcon,
 } from '@mui/icons-material';
 import { processImage, type ProcessedImage } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
@@ -53,6 +54,7 @@ interface TVState {
   uploaderName?: string;
   comment?: string;
   photoUrl?: string;
+  isFullscreen?: boolean;
 }
 
 export default function UploadPage() {
@@ -590,17 +592,6 @@ export default function UploadPage() {
               <PrevIcon fontSize="large" />
             </Fab>
             
-            {/* Fullscreen toggle button - sends command to TV */}
-            <Fab
-              color="secondary"
-              size="large"
-              onClick={sendToggleFullscreen}
-              disabled={!tvState.photoUrl}
-              className={styles.navButton}
-            >
-              <FullscreenIcon fontSize="large" />
-            </Fab>
-            
             <Fab
               color="primary"
               size="large"
@@ -611,6 +602,20 @@ export default function UploadPage() {
               <NextIcon fontSize="large" />
             </Fab>
           </Box>
+
+          {/* Fullscreen toggle switch */}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={tvState.isFullscreen || false}
+                onChange={sendToggleFullscreen}
+                disabled={!tvState.photoUrl}
+                color="secondary"
+              />
+            }
+            label="Fullscreen on TV"
+            className={styles.fullscreenSwitch}
+          />
         </>
       ) : (
         <Box className={styles.remoteWaiting}>

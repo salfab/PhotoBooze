@@ -104,6 +104,12 @@
   z-index: 1000;
 }
 
+/* Blurred state when fullscreen is active */
+.blurred {
+  filter: blur(2px);
+  transition: filter 0.3s ease;
+}
+
 /* Fullscreen overlay - triggered by remote */
 .fullscreenOverlay {
   position: fixed;
@@ -111,31 +117,67 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.97);
+  background: rgba(0, 0, 0, 0.4);
   z-index: 2000;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  padding: 2rem;
+  padding: 16px;
+}
+
+.fullscreenPolaroid {
+  filter: drop-shadow(0 20px 50px rgba(0, 0, 0, 0.5));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+}
+
+.fullscreenPolaroidInner {
+  background: white;
+  padding: 12px 12px 16px 12px;
+  border-radius: 2px;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 0 40px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
 }
 
 .fullscreenImage {
-  max-width: 95vw;
-  max-height: 85vh;
+  display: block;
+  max-width: calc(100vw - 56px);
+  max-height: calc(100vh - 140px);
+  width: auto;
+  height: auto;
   object-fit: contain;
-  border-radius: 4px;
-  box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
 }
 
-.fullscreenCaption {
-  position: absolute;
-  bottom: 2rem;
-  left: 0;
-  right: 0;
-  text-align: center;
-  padding: 1rem;
+.fullscreenPolaroidCaption {
+  height: 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 8px;
+  overflow: hidden;
+}
+
+.fullscreenAuthor {
+  font-family: 'Caveat', 'Comic Sans MS', cursive;
+  font-size: 22px;
+  color: #333;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.fullscreenComment {
+  font-family: 'Caveat', 'Comic Sans MS', cursive;
+  font-size: 16px;
+  color: #666;
+  font-style: italic;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Responsive adjustments */

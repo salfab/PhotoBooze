@@ -148,8 +148,9 @@ export default function TvPage() {
       })
       .on('broadcast', { event: 'request-state' }, () => {
         console.log('State request received from remote');
-        // Broadcast current state immediately when requested
-        broadcastCurrentState();
+        // State will be broadcast by the broadcastCurrentState effect
+        // Trigger a re-broadcast by forcing state update
+        setCurrentIndex(prev => prev);
       })
       .subscribe();
 
@@ -171,37 +172,34 @@ export default function TvPage() {
     
     const currentPhoto = photos[currentIndex];
     const photoUrl = currentPhoto ? getTvImageUrl(currentPhoto) : null;
-    const stateChannel = supabase.channel(`tv-state-broadcast:${partyId}:${Date.now()}`);
     
-    stateChannel.subscribe(async (status) => {
+    // Use a simpler approach - single channel subscription
+    const channel = supabase.channel(`tv-state:${partyId}`);
+    
+    channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        // Use the shared tv-state channel for broadcast
-        const sharedChannel = supabase.channel(`tv-state:${partyId}`);
-        sharedChannel.subscribe(async (sharedStatus) => {
-          if (sharedStatus === 'SUBSCRIBED') {
-            await sharedChannel.send({
-              type: 'broadcast',
-              event: 'state',
-              payload: {
-                currentIndex,
-                totalPhotos: photos.length,
-                uploaderName: currentPhoto?.uploader?.display_name || 'Anonymous',
-                comment: currentPhoto?.comment || null,
-                photoUrl,
-              },
-            });
-            // Clean up channels after sending
-            setTimeout(() => {
-              supabase.removeChannel(sharedChannel);
-              supabase.removeChannel(stateChannel);
-            }, 100);
-          }
+        console.log('Broadcasting TV state:', { currentIndex, totalPhotos: photos.length, isFullscreen });
+        await channel.send({
+          type: 'broadcast',
+          event: 'state',
+          payload: {
+            currentIndex,
+            totalPhotos: photos.length,
+            uploaderName: currentPhoto?.uploader?.display_name || 'Anonymous',
+            comment: currentPhoto?.comment || null,
+            photoUrl,
+            isFullscreen,
+          },
         });
+        // Clean up channel after sending
+        setTimeout(() => {
+          supabase.removeChannel(channel);
+        }, 100);
       }
     });
-  }, [partyId, supabase, currentIndex, photos, getTvImageUrl]);
+  }, [partyId, supabase, currentIndex, photos, getTvImageUrl, isFullscreen]);
 
-  // Broadcast state when it changes
+  // Broadcast state when it changes (including isFullscreen)
   useEffect(() => {
     broadcastCurrentState();
   }, [broadcastCurrentState]);
@@ -254,7 +252,7 @@ export default function TvPage() {
   return (
     <Box className={styles.container}>
       {/* Photo stack */}
-      <Box className={styles.stackContainer}>
+      <Box className={`${styles.stackContainer} ${isFullscreen ? styles.blurred : ''}`}>
         <AnimatePresence mode="popLayout">
           {visiblePhotos.map((photo, idx) => {
             const actualIndex = startIdx + idx;
@@ -317,7 +315,7 @@ export default function TvPage() {
       </Box>
 
       {/* Photo counter */}
-      <Box className={styles.counter}>
+      <Box className={`${styles.counter} ${isFullscreen ? styles.blurred : ''}`}>
         <Typography variant="body1">
           {currentIndex + 1} / {photos.length}
         </Typography>
@@ -329,21 +327,25 @@ export default function TvPage() {
           className={styles.fullscreenOverlay} 
           onClick={() => setIsFullscreen(false)}
         >
-          <img 
-            src={getTvImageUrl(photos[currentIndex])} 
-            alt={`Photo by ${photos[currentIndex].uploader?.display_name || 'Anonymous'}`}
-            className={styles.fullscreenImage}
-          />
-          <Box className={styles.fullscreenCaption}>
-            <Typography variant="h5" sx={{ color: 'white' }}>
-              📷 {photos[currentIndex].uploader?.display_name || 'Anonymous'}
-            </Typography>
-            {photos[currentIndex].comment && (
-              <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.8)', fontStyle: 'italic' }}>
-                "{photos[currentIndex].comment}"
-              </Typography>
-            )}
-          </Box>
+          <div className={styles.fullscreenPolaroid}>
+            <div className={styles.fullscreenPolaroidInner}>
+              <img 
+                src={getTvImageUrl(photos[currentIndex])} 
+                alt={`Photo by ${photos[currentIndex].uploader?.display_name || 'Anonymous'}`}
+                className={styles.fullscreenImage}
+              />
+              <div className={styles.fullscreenPolaroidCaption}>
+                <span className={styles.fullscreenAuthor}>
+                  📷 {photos[currentIndex].uploader?.display_name || 'Anonymous'}
+                </span>
+                {photos[currentIndex].comment && (
+                  <span className={styles.fullscreenComment}>
+                    "{photos[currentIndex].comment}"
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </Box>
       )}
     </Box>
