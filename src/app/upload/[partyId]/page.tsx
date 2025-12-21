@@ -9,16 +9,19 @@ import {
   Button,
   Alert,
   CircularProgress,
-  LinearProgress,
+  TextField,
+  IconButton,
+  Fab,
   Card,
-  CardContent,
-  Stack,
-  Chip,
+  CardMedia,
+  Dialog,
+  DialogContent,
 } from '@mui/material';
 import {
   CameraAlt as CameraIcon,
-  CloudUpload as UploadIcon,
-  CheckCircle as SuccessIcon,
+  PhotoLibrary as GalleryIcon,
+  Send as SendIcon,
+  Close as CloseIcon,
   Tv as TvIcon,
 } from '@mui/icons-material';
 import { processImage, type ProcessedImage } from '@/lib/image';
@@ -28,57 +31,70 @@ interface UploadedPhoto {
   id: string;
   name: string;
   size: number;
+  comment?: string;
 }
 
-interface UploadProgress {
-  fileName: string;
-  status: 'processing' | 'uploading' | 'done' | 'error';
-  progress: number;
-  error?: string;
+interface PendingPhoto {
+  file: File;
+  preview: string;
+  comment: string;
 }
 
 export default function UploadPage() {
   const params = useParams();
   const router = useRouter();
   const partyId = params.partyId as string;
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  const [uploads, setUploads] = useState<UploadProgress[]>([]);
+  const [displayName, setDisplayName] = useState<string>('');
+  const [pendingPhoto, setPendingPhoto] = useState<PendingPhoto | null>(null);
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
-  // Check if user has session for this party
+  // Get user's display name from session
   useEffect(() => {
-    async function checkSession() {
+    async function getSessionInfo() {
       try {
-        const response = await fetch(`/api/parties/${partyId}`);
-        if (!response.ok) {
+        const sessionRes = await fetch('/api/session');
+        if (sessionRes.ok) {
+          const session = await sessionRes.json();
+          if (session.authenticated && session.partyId === partyId) {
+            // Fetch uploader details to get display name
+            const uploaderRes = await fetch(`/api/uploaders/${session.uploaderId}`);
+            if (uploaderRes.ok) {
+              const uploader = await uploaderRes.json();
+              setDisplayName(uploader.display_name || 'Guest');
+            }
+          } else {
+            router.push('/');
+          }
+        } else {
           router.push('/');
         }
       } catch {
         router.push('/');
       }
     }
-    checkSession();
+    getSessionInfo();
   }, [partyId, router]);
 
   const uploadPhoto = useCallback(async (
     file: File,
     processed: ProcessedImage,
-    index: number
+    comment: string
   ): Promise<UploadedPhoto | null> => {
-    // Update to uploading status
-    setUploads(prev => prev.map((u, i) => 
-      i === index ? { ...u, status: 'uploading', progress: 50 } : u
-    ));
-
     try {
       const formData = new FormData();
       formData.append('original', new Blob([processed.original], { type: processed.originalMime }), `original.${processed.originalExt}`);
       formData.append('tv', new Blob([processed.tv], { type: processed.tvMime }), 'tv.jpg');
       formData.append('originalMime', processed.originalMime);
       formData.append('originalExt', processed.originalExt);
+      if (comment) {
+        formData.append('comment', comment);
+      }
 
       const response = await fetch('/api/photos', {
         method: 'POST',
@@ -92,94 +108,88 @@ export default function UploadPage() {
 
       const result = await response.json();
 
-      // Update to done status
-      setUploads(prev => prev.map((u, i) => 
-        i === index ? { ...u, status: 'done', progress: 100 } : u
-      ));
-
       return {
         id: result.id,
         name: file.name,
         size: file.size,
+        comment,
       };
     } catch (err) {
-      setUploads(prev => prev.map((u, i) => 
-        i === index ? { 
-          ...u, 
-          status: 'error', 
-          error: err instanceof Error ? err.message : 'Upload failed' 
-        } : u
-      ));
-      return null;
+      throw err;
     }
   }, []);
 
-  const handleFiles = useCallback(async (files: FileList) => {
-    const fileArray = Array.from(files).filter(f => 
-      f.type.startsWith('image/') || 
-      f.name.toLowerCase().endsWith('.heic') || 
-      f.name.toLowerCase().endsWith('.heif')
-    );
-
-    if (fileArray.length === 0) {
-      setError('Please select image files');
+  const handleFileSelect = useCallback((file: File) => {
+    if (!file.type.startsWith('image/') && 
+        !file.name.toLowerCase().endsWith('.heic') && 
+        !file.name.toLowerCase().endsWith('.heif')) {
+      setError('Please select an image file');
       return;
     }
 
+    // Create preview
+    const preview = URL.createObjectURL(file);
+    setPendingPhoto({
+      file,
+      preview,
+      comment: '',
+    });
     setError(null);
-    setIsUploading(true);
+  }, []);
 
-    // Initialize upload progress for all files
-    const initialProgress: UploadProgress[] = fileArray.map(f => ({
-      fileName: f.name,
-      status: 'processing',
-      progress: 0,
-    }));
-    setUploads(prev => [...prev, ...initialProgress]);
-    const baseIndex = uploads.length;
+  const handleCameraClick = useCallback(() => {
+    cameraInputRef.current?.click();
+  }, []);
 
-    // Process and upload each file
-    for (let i = 0; i < fileArray.length; i++) {
-      const file = fileArray[i];
-      const index = baseIndex + i;
-
-      try {
-        // Process image (HEIC conversion + TV resize)
-        setUploads(prev => prev.map((u, j) => 
-          j === index ? { ...u, progress: 25 } : u
-        ));
-
-        const processed = await processImage(file);
-
-        // Upload
-        const uploaded = await uploadPhoto(file, processed, index);
-        if (uploaded) {
-          setUploadedPhotos(prev => [...prev, uploaded]);
-        }
-      } catch (err) {
-        setUploads(prev => prev.map((u, j) => 
-          j === index ? { 
-            ...u, 
-            status: 'error', 
-            error: err instanceof Error ? err.message : 'Processing failed' 
-          } : u
-        ));
-      }
-    }
-
-    setIsUploading(false);
-  }, [uploads.length, uploadPhoto]);
-
-  const handleFileSelect = useCallback(() => {
-    fileInputRef.current?.click();
+  const handleGalleryClick = useCallback(() => {
+    galleryInputRef.current?.click();
   }, []);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      handleFiles(e.target.files);
+      handleFileSelect(e.target.files[0]);
       e.target.value = ''; // Reset input
     }
-  }, [handleFiles]);
+  }, [handleFileSelect]);
+
+  const handleCommentChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (pendingPhoto) {
+      setPendingPhoto({ ...pendingPhoto, comment: e.target.value });
+    }
+  }, [pendingPhoto]);
+
+  const handleSendPhoto = useCallback(async () => {
+    if (!pendingPhoto) return;
+
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      const processed = await processImage(pendingPhoto.file);
+      const uploaded = await uploadPhoto(pendingPhoto.file, processed, pendingPhoto.comment);
+      
+      if (uploaded) {
+        setUploadedPhotos(prev => [...prev, uploaded]);
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 2000);
+      }
+
+      // Clean up
+      URL.revokeObjectURL(pendingPhoto.preview);
+      setPendingPhoto(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setIsUploading(false);
+    }
+  }, [pendingPhoto, uploadPhoto]);
+
+  const handleCancelPhoto = useCallback(() => {
+    if (pendingPhoto) {
+      URL.revokeObjectURL(pendingPhoto.preview);
+      setPendingPhoto(null);
+    }
+  }, [pendingPhoto]);
 
   const openTvView = useCallback(() => {
     window.open(`/tv/${partyId}`, '_blank');
@@ -188,15 +198,12 @@ export default function UploadPage() {
   return (
     <Container maxWidth="sm" className={styles.container}>
       <Box className={styles.header}>
-        <CameraIcon className={styles.icon} />
-        <Typography variant="h4" component="h1" gutterBottom>
-          Upload Photos
+        <Typography variant="h5" component="h1" gutterBottom>
+          Hi {displayName}! 👋
         </Typography>
-        <Chip 
-          label={`${uploadedPhotos.length} uploaded`} 
-          color="primary" 
-          size="small" 
-        />
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          {uploadedPhotos.length} {uploadedPhotos.length === 1 ? 'photo' : 'photos'} shared
+        </Typography>
       </Box>
 
       {error && (
@@ -205,82 +212,126 @@ export default function UploadPage() {
         </Alert>
       )}
 
+      {uploadSuccess && (
+        <Alert severity="success" className={styles.alert}>
+          Photo uploaded successfully! 🎉
+        </Alert>
+      )}
+
       <input
-        ref={fileInputRef}
+        ref={cameraInputRef}
         type="file"
-        accept="image/*,.heic,.heif"
-        multiple
+        accept="image/*"
+        capture="environment"
         onChange={handleInputChange}
         className={styles.hiddenInput}
       />
 
-      <Box 
-        className={styles.uploadArea}
-        onClick={handleFileSelect}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && handleFileSelect()}
-      >
-        <UploadIcon className={styles.uploadIcon} />
-        <Typography variant="h6" gutterBottom>
-          Tap to select photos
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Supports JPEG, PNG, WebP, HEIC
-        </Typography>
-      </Box>
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*,.heic,.heif"
+        onChange={handleInputChange}
+        className={styles.hiddenInput}
+      />
 
-      <Button
-        variant="outlined"
-        startIcon={<TvIcon />}
-        onClick={openTvView}
+      {!pendingPhoto && (
+        <>
+          <Box className={styles.buttonContainer}>
+            <Fab
+              color="primary"
+              className={styles.cameraButton}
+              onClick={handleCameraClick}
+              disabled={isUploading}
+            >
+              <CameraIcon fontSize="large" />
+            </Fab>
+            <Typography variant="h6" gutterBottom>
+              Take a Photo
+            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              or
+            </Typography>
+            <Button
+              variant="outlined"
+              size="large"
+              startIcon={<GalleryIcon />}
+              onClick={handleGalleryClick}
+              disabled={isUploading}
+              fullWidth
+              className={styles.galleryButton}
+            >
+              Choose from Gallery
+            </Button>
+          </Box>
+
+          <Button
+            variant="text"
+            startIcon={<TvIcon />}
+            onClick={openTvView}
+            fullWidth
+            className={styles.tvButton}
+          >
+            Open TV Display
+          </Button>
+        </>
+      )}
+
+      {/* Photo preview and comment dialog */}
+      <Dialog
+        open={!!pendingPhoto}
+        onClose={handleCancelPhoto}
+        maxWidth="sm"
         fullWidth
-        className={styles.tvButton}
+        className={styles.photoDialog}
       >
-        Open TV Display
-      </Button>
+        <DialogContent className={styles.dialogContent}>
+          {pendingPhoto && (
+            <>
+              <Box className={styles.previewHeader}>
+                <IconButton
+                  onClick={handleCancelPhoto}
+                  className={styles.closeButton}
+                  disabled={isUploading}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
 
-      {uploads.length > 0 && (
-        <Stack spacing={2} className={styles.uploadList}>
-          {uploads.map((upload, index) => (
-            <Card key={index} className={styles.uploadCard}>
-              <CardContent className={styles.uploadCardContent}>
-                <Box className={styles.uploadInfo}>
-                  <Typography variant="body2" noWrap className={styles.fileName}>
-                    {upload.fileName}
-                  </Typography>
-                  {upload.status === 'done' && (
-                    <SuccessIcon color="success" fontSize="small" />
-                  )}
-                  {upload.status === 'error' && (
-                    <Typography variant="caption" color="error">
-                      {upload.error}
-                    </Typography>
-                  )}
-                </Box>
-                {(upload.status === 'processing' || upload.status === 'uploading') && (
-                  <Box className={styles.progressContainer}>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={upload.progress} 
-                      className={styles.progress}
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      {upload.status === 'processing' ? 'Processing...' : 'Uploading...'}
-                    </Typography>
-                  </Box>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </Stack>
-      )}
+              <Card className={styles.previewCard}>
+                <CardMedia
+                  component="img"
+                  image={pendingPhoto.preview}
+                  alt="Preview"
+                  className={styles.previewImage}
+                />
+              </Card>
 
-      {isUploading && (
-        <Box className={styles.loadingOverlay}>
-          <CircularProgress />
-        </Box>
-      )}
+              <Box className={styles.commentSection}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={2}
+                  placeholder="Add a comment (optional)..."
+                  value={pendingPhoto.comment}
+                  onChange={handleCommentChange}
+                  disabled={isUploading}
+                  className={styles.commentField}
+                />
+                <IconButton
+                  color="primary"
+                  size="large"
+                  onClick={handleSendPhoto}
+                  disabled={isUploading}
+                  className={styles.sendButton}
+                >
+                  {isUploading ? <CircularProgress size={24} /> : <SendIcon />}
+                </IconButton>
+              </Box>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </Container>
   );
 }

@@ -1,18 +1,14 @@
 .container {
   min-height: 100vh;
-  padding: 2rem 1rem;
+  padding: 1.5rem 1rem;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .header {
   text-align: center;
   margin-bottom: 2rem;
-}
-
-.icon {
-  font-size: 3rem !important;
-  color: var(--primary-color, #1976d2);
-  margin-bottom: 1rem;
 }
 
 .alert {
@@ -23,75 +19,82 @@
   display: none;
 }
 
-.uploadArea {
-  background-color: #f5f5f5;
-  border: 2px dashed #ccc;
-  border-radius: 8px;
-  padding: 3rem;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.2s, background-color 0.2s;
-  margin-bottom: 1rem;
+.buttonContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 3rem 1rem;
+  flex: 1;
+  justify-content: center;
 }
 
-.uploadArea:hover,
-.uploadArea:focus {
-  border-color: var(--primary-color, #1976d2);
-  background-color: #e3f2fd;
-  outline: none;
+.cameraButton {
+  width: 120px !important;
+  height: 120px !important;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2) !important;
 }
 
-.uploadIcon {
-  font-size: 3rem !important;
-  color: #999;
-  margin-bottom: 1rem;
-}
-
-.tvButton {
-  margin-bottom: 2rem;
-}
-
-.uploadList {
+.galleryButton {
   margin-top: 1rem;
 }
 
-.uploadCard {
-  border-radius: 8px;
+.tvButton {
+  margin-top: auto;
 }
 
-.uploadCardContent {
-  padding: 1rem !important;
+.photoDialog {
+  margin: 0;
 }
 
-.uploadInfo {
+.dialogContent {
+  padding: 0 !important;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  min-height: 80vh;
 }
 
-.fileName {
+.previewHeader {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+}
+
+.closeButton {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.previewCard {
   flex: 1;
-  min-width: 0;
-}
-
-.progressContainer {
-  margin-top: 0.5rem;
-}
-
-.progress {
-  margin-bottom: 0.25rem;
-}
-
-.loadingOverlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(255, 255, 255, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  background-color: #000;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.previewImage {
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+.commentSection {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 1rem;
+  background-color: #fff;
+}
+
+.commentField {
+  flex: 1;
+}
+
+.sendButton {
+  flex-shrink: 0;
 }

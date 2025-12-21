@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
     const tvFile = formData.get('tv') as File | null;
     const originalMime = formData.get('originalMime') as string | null;
     const originalExt = formData.get('originalExt') as string | null;
+    const comment = formData.get('comment') as string | null;
 
     if (!originalFile || !tvFile) {
       return NextResponse.json(
@@ -126,6 +127,7 @@ export async function POST(request: NextRequest) {
         tv_mime: 'image/jpeg',
         original_bytes: originalFile.size,
         tv_bytes: tvFile.size,
+        comment: comment || null,
       })
       .select('id, created_at')
       .single();
