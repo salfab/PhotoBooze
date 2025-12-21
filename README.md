@@ -352,9 +352,30 @@ npx vercel --prod
 
 ---
 
-### Updating Your Deployment
+### Setting Up Automatic Deployments (CI/CD)
 
-After making changes:
+**Recommended:** Connect Vercel to your GitHub repository for automatic deployments:
+
+1. Go to [vercel.com/dashboard](https://vercel.com/dashboard)
+2. Select your `photobooze` project
+3. Go to **Settings** → **Git**
+4. Click **Connect Git Repository**
+5. Select your GitHub repository (`salfab/PhotoBooze`)
+6. Configure:
+   - **Production Branch**: `master`
+   - Enable **Automatic Deployments from Git**
+
+Once connected, Vercel will automatically:
+- ✅ Deploy to production when you push to `master`
+- ✅ Create preview deployments for pull requests
+- ✅ Show deployment status in GitHub commits/PRs
+- ✅ Run build checks before deploying
+
+---
+
+### Manual Deployment (Alternative)
+
+If you prefer manual control:
 
 ```bash
 # Commit changes
@@ -363,11 +384,9 @@ git add . && git commit -m "your changes"
 # Push to GitHub
 git push origin master
 
-# Redeploy to Vercel
+# Manually deploy to Vercel
 npx vercel --prod
 ```
-
-Or connect Vercel to your GitHub repo for automatic deployments on push.
 
 ## Contributing
 
