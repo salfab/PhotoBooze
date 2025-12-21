@@ -142,6 +142,7 @@ export default function TvPage() {
   const currentPhoto = photos[currentIndex];
   const uploaderName = currentPhoto.uploader?.display_name || 'Anonymous';
   const imageUrl = getTvImageUrl(currentPhoto);
+  const comment = currentPhoto.comment;
 
   return (
     <Box className={styles.container}>
@@ -156,6 +157,11 @@ export default function TvPage() {
             <Typography variant="h6" className={styles.uploaderName}>
               📷 {uploaderName}
             </Typography>
+            {comment && (
+              <Typography variant="body1" className={styles.comment}>
+                {comment}
+              </Typography>
+            )}
             <Typography variant="body2" className={styles.photoCount}>
               {currentIndex + 1} / {photos.length}
             </Typography>

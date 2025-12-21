@@ -51,8 +51,8 @@
 
 .photoInfo {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .uploaderName {
@@ -60,9 +60,17 @@
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
+.comment {
+  color: #fff;
+  font-style: italic;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  max-width: 80%;
+}
+
 .photoCount {
   color: rgba(255, 255, 255, 0.8);
   background-color: rgba(0, 0, 0, 0.5);
   padding: 0.5rem 1rem;
   border-radius: 4px;
+  align-self: flex-start;
 }
