@@ -15,7 +15,7 @@ const SESSION_EXPIRY_HOURS = 12;
  * Must be at least 32 characters.
  */
 function getSecretKey(): Uint8Array {
-  const secret = process.env.SESSION_SECRET?.trim();
+  const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) {
     throw new Error('SESSION_SECRET must be set and at least 32 characters');
   }
