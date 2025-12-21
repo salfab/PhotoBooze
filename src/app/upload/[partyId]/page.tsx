@@ -149,6 +149,16 @@ export default function UploadPage() {
     generateQR();
   }, [partyId]);
 
+  // Auto-focus comment input when photo preview loads
+  useEffect(() => {
+    if (pendingPhoto && commentInputRef.current) {
+      // Small delay to ensure the input is rendered
+      setTimeout(() => {
+        commentInputRef.current?.focus();
+      }, 100);
+    }
+  }, [pendingPhoto]);
+
   // Detect if mobile device
   useEffect(() => {
     const checkMobile = () => {
@@ -580,7 +590,7 @@ export default function UploadPage() {
         </Box>
       ) : pendingPhoto ? (
         <Box className={styles.previewContainer}>
-          <Card className={styles.previewCard}>
+          <Card className={styles.previewCard} sx={ {borderRadius: 0}}>
             <Box className={styles.previewHeader}>
               <IconButton
                 onClick={handleCancelPhoto}
