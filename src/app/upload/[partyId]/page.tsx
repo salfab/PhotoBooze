@@ -28,6 +28,7 @@ import {
   SettingsRemote as RemoteIcon,
   NavigateBefore as PrevIcon,
   NavigateNext as NextIcon,
+  Fullscreen as FullscreenIcon,
 } from '@mui/icons-material';
 import { processImage, type ProcessedImage } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
@@ -51,6 +52,7 @@ interface TVState {
   totalPhotos: number;
   uploaderName?: string;
   comment?: string;
+  photoUrl?: string;
 }
 
 export default function UploadPage() {
@@ -116,18 +118,45 @@ export default function UploadPage() {
     if (activeTab !== 1) return; // Only listen when on Remote tab
 
     const supabase = supabaseRef.current;
-    const channel = supabase.channel(`tv-state:${partyId}`);
+    const stateChannel = supabase.channel(`tv-state:${partyId}`);
 
-    channel
+    stateChannel
       .on('broadcast', { event: 'state' }, ({ payload }) => {
+        console.log('TV state received:', payload);
         setTvState(payload as TVState);
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Remote subscribed to TV state, requesting current state...');
+          // Request current state from TV after subscribing
+          requestTvState();
+        }
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(stateChannel);
     };
   }, [partyId, activeTab]);
+
+  // Request current state from TV
+  const requestTvState = useCallback(() => {
+    const supabase = supabaseRef.current;
+    const controlChannel = supabase.channel(`tv-control:${partyId}`);
+    
+    controlChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        controlChannel.send({
+          type: 'broadcast',
+          event: 'request-state',
+          payload: {},
+        });
+        // Unsubscribe after sending
+        setTimeout(() => {
+          supabase.removeChannel(controlChannel);
+        }, 100);
+      }
+    });
+  }, [partyId]);
 
   // Send navigation command to TV
   const sendNavigationCommand = useCallback((action: 'prev' | 'next') => {
@@ -140,6 +169,26 @@ export default function UploadPage() {
           type: 'broadcast',
           event: 'navigate',
           payload: { action },
+        });
+        // Unsubscribe after sending
+        setTimeout(() => {
+          supabase.removeChannel(channel);
+        }, 100);
+      }
+    });
+  }, [partyId]);
+
+  // Send fullscreen toggle command to TV
+  const sendToggleFullscreen = useCallback(() => {
+    const supabase = supabaseRef.current;
+    const channel = supabase.channel(`tv-control:${partyId}`);
+    
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        channel.send({
+          type: 'broadcast',
+          event: 'toggle-fullscreen',
+          payload: {},
         });
         // Unsubscribe after sending
         setTimeout(() => {
@@ -540,6 +589,18 @@ export default function UploadPage() {
             >
               <PrevIcon fontSize="large" />
             </Fab>
+            
+            {/* Fullscreen toggle button - sends command to TV */}
+            <Fab
+              color="secondary"
+              size="large"
+              onClick={sendToggleFullscreen}
+              disabled={!tvState.photoUrl}
+              className={styles.navButton}
+            >
+              <FullscreenIcon fontSize="large" />
+            </Fab>
+            
             <Fab
               color="primary"
               size="large"

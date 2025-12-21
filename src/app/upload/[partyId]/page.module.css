@@ -215,13 +215,15 @@
 
 .remoteControls {
   display: flex;
-  gap: 3rem;
+  gap: 2rem;
   padding: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .navButton {
-  width: 80px !important;
-  height: 80px !important;
+  width: 70px !important;
+  height: 70px !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 

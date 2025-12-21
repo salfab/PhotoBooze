@@ -16,7 +16,8 @@ const STORAGE_BUCKET = 'photobooze-images';
 const MAX_VISIBLE_PHOTOS = 15;
 
 // Generate consistent random values based on photo ID
-function getScatterProps(photoId: string, index: number) {
+// Uses viewport dimensions for full-screen scatter
+function getScatterProps(photoId: string, index: number, viewportWidth: number, viewportHeight: number) {
   let hash = 0;
   for (let i = 0; i < photoId.length; i++) {
     hash = ((hash << 5) - hash) + photoId.charCodeAt(i);
@@ -28,10 +29,14 @@ function getScatterProps(photoId: string, index: number) {
     return x - Math.floor(x);
   };
 
+  // Scatter across ~70% of viewport width and ~50% of viewport height
+  const maxX = viewportWidth * 0.35;
+  const maxY = viewportHeight * 0.25;
+
   return {
-    rotate: (random(1) - 0.5) * 24, // -12 to +12 degrees
-    x: (random(2) - 0.5) * 100,     // -50 to +50px
-    y: (random(3) - 0.5) * 60,      // -30 to +30px
+    rotate: (random(1) - 0.5) * 30, // -15 to +15 degrees
+    x: (random(2) - 0.5) * maxX * 2, // -35vw to +35vw equivalent
+    y: (random(3) - 0.5) * maxY * 2, // -25vh to +25vh equivalent
     zIndex: index,
   };
 }
@@ -44,8 +49,20 @@ export default function TvPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewport, setViewport] = useState({ width: 1920, height: 1080 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   const supabase = useMemo(() => createClient(), []);
+
+  // Track viewport size for scatter calculations
+  useEffect(() => {
+    const updateViewport = () => {
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    };
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
 
   // Load initial photos
   useEffect(() => {
@@ -113,7 +130,7 @@ export default function TvPage() {
     };
   }, [partyId, supabase]);
 
-  // Subscribe to remote control commands
+  // Subscribe to remote control commands AND state requests
   useEffect(() => {
     const channel = supabase
       .channel(`tv-control:${partyId}`)
@@ -125,6 +142,15 @@ export default function TvPage() {
           setCurrentIndex(prev => Math.max(prev - 1, 0));
         }
       })
+      .on('broadcast', { event: 'toggle-fullscreen' }, () => {
+        console.log('Fullscreen toggle received from remote');
+        setIsFullscreen(prev => !prev);
+      })
+      .on('broadcast', { event: 'request-state' }, () => {
+        console.log('State request received from remote');
+        // Broadcast current state immediately when requested
+        broadcastCurrentState();
+      })
       .subscribe();
 
     return () => {
@@ -132,42 +158,53 @@ export default function TvPage() {
     };
   }, [partyId, supabase, photos.length]);
 
-  // Broadcast current state for remotes
-  useEffect(() => {
-    if (photos.length === 0) return;
-    
-    const currentPhoto = photos[currentIndex];
-    const channel = supabase.channel(`tv-state:${partyId}`);
-    
-    channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await channel.send({
-          type: 'broadcast',
-          event: 'state',
-          payload: {
-            currentIndex,
-            totalPhotos: photos.length,
-            currentPhoto: currentPhoto ? {
-              id: currentPhoto.id,
-              uploaderName: currentPhoto.uploader?.display_name || 'Anonymous',
-              comment: currentPhoto.comment,
-            } : null,
-          },
-        });
-      }
-    });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [partyId, supabase, currentIndex, photos]);
-
   const getTvImageUrl = useCallback((photo: Photo): string => {
     const { data } = supabase.storage
       .from(STORAGE_BUCKET)
       .getPublicUrl(photo.tv_path);
     return data.publicUrl;
   }, [supabase]);
+
+  // Function to broadcast current state - can be called on demand
+  const broadcastCurrentState = useCallback(() => {
+    if (photos.length === 0) return;
+    
+    const currentPhoto = photos[currentIndex];
+    const photoUrl = currentPhoto ? getTvImageUrl(currentPhoto) : null;
+    const stateChannel = supabase.channel(`tv-state-broadcast:${partyId}:${Date.now()}`);
+    
+    stateChannel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        // Use the shared tv-state channel for broadcast
+        const sharedChannel = supabase.channel(`tv-state:${partyId}`);
+        sharedChannel.subscribe(async (sharedStatus) => {
+          if (sharedStatus === 'SUBSCRIBED') {
+            await sharedChannel.send({
+              type: 'broadcast',
+              event: 'state',
+              payload: {
+                currentIndex,
+                totalPhotos: photos.length,
+                uploaderName: currentPhoto?.uploader?.display_name || 'Anonymous',
+                comment: currentPhoto?.comment || null,
+                photoUrl,
+              },
+            });
+            // Clean up channels after sending
+            setTimeout(() => {
+              supabase.removeChannel(sharedChannel);
+              supabase.removeChannel(stateChannel);
+            }, 100);
+          }
+        });
+      }
+    });
+  }, [partyId, supabase, currentIndex, photos, getTvImageUrl]);
+
+  // Broadcast state when it changes
+  useEffect(() => {
+    broadcastCurrentState();
+  }, [broadcastCurrentState]);
 
   if (loading) {
     return (
@@ -222,7 +259,7 @@ export default function TvPage() {
           {visiblePhotos.map((photo, idx) => {
             const actualIndex = startIdx + idx;
             const isTop = actualIndex === currentIndex;
-            const scatter = getScatterProps(photo.id, actualIndex);
+            const scatter = getScatterProps(photo.id, actualIndex, viewport.width, viewport.height);
             
             return (
               <motion.div
@@ -285,6 +322,30 @@ export default function TvPage() {
           {currentIndex + 1} / {photos.length}
         </Typography>
       </Box>
+
+      {/* Fullscreen overlay - triggered by remote */}
+      {isFullscreen && photos[currentIndex] && (
+        <Box 
+          className={styles.fullscreenOverlay} 
+          onClick={() => setIsFullscreen(false)}
+        >
+          <img 
+            src={getTvImageUrl(photos[currentIndex])} 
+            alt={`Photo by ${photos[currentIndex].uploader?.display_name || 'Anonymous'}`}
+            className={styles.fullscreenImage}
+          />
+          <Box className={styles.fullscreenCaption}>
+            <Typography variant="h5" sx={{ color: 'white' }}>
+              📷 {photos[currentIndex].uploader?.display_name || 'Anonymous'}
+            </Typography>
+            {photos[currentIndex].comment && (
+              <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.8)', fontStyle: 'italic' }}>
+                "{photos[currentIndex].comment}"
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 }

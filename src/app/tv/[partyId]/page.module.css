@@ -50,12 +50,15 @@
   box-shadow: 
     0 2px 4px rgba(0, 0, 0, 0.1),
     inset 0 0 40px rgba(0, 0, 0, 0.02);
+  width: fit-content;
 }
 
 .polaroidImage {
-  width: 400px;
-  height: 300px;
-  object-fit: cover;
+  /* Respect natural aspect ratio */
+  width: auto;
+  height: auto;
+  max-width: min(50vw, 650px);
+  max-height: min(55vh, 700px);
   display: block;
   background: #f0f0f0;
 }
@@ -98,13 +101,48 @@
   border-radius: 20px;
   font-size: 14px;
   backdrop-filter: blur(10px);
+  z-index: 1000;
+}
+
+/* Fullscreen overlay - triggered by remote */
+.fullscreenOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.97);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 2rem;
+}
+
+.fullscreenImage {
+  max-width: 95vw;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
+}
+
+.fullscreenCaption {
+  position: absolute;
+  bottom: 2rem;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 1rem;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .polaroidImage {
-    width: 280px;
-    height: 210px;
+    max-width: min(70vw, 350px);
+    max-height: min(50vh, 400px);
   }
   
   .polaroidInner {
@@ -114,7 +152,7 @@
 
 @media (min-width: 1400px) {
   .polaroidImage {
-    width: 500px;
-    height: 375px;
+    max-width: min(45vw, 800px);
+    max-height: min(60vh, 850px);
   }
 }
