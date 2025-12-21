@@ -137,34 +137,6 @@ export default function TvPage() {
     };
   }, [partyId, supabase]);
 
-  // Subscribe to remote control commands AND state requests
-  useEffect(() => {
-    const channel = supabase
-      .channel(`tv-control:${partyId}`)
-      .on('broadcast', { event: 'navigate' }, ({ payload }) => {
-        console.log('Remote command received:', payload);
-        if (payload.action === 'next') {
-          setCurrentIndex(prev => Math.min(prev + 1, photosRef.current.length - 1));
-        } else if (payload.action === 'prev') {
-          setCurrentIndex(prev => Math.max(prev - 1, 0));
-        }
-      })
-      .on('broadcast', { event: 'toggle-fullscreen' }, () => {
-        console.log('Fullscreen toggle received from remote');
-        setIsFullscreen(prev => !prev);
-      })
-      .on('broadcast', { event: 'request-state' }, () => {
-        console.log('State request received from remote');
-        // Broadcast current state immediately
-        broadcastCurrentState();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [partyId, supabase, broadcastCurrentState]);
-
   const getTvImageUrl = useCallback((photo: Photo): string => {
     const { data } = supabase.storage
       .from(STORAGE_BUCKET)
@@ -211,6 +183,34 @@ export default function TvPage() {
       },
     });
   }, [currentIndex, photos, getTvImageUrl, isFullscreen]);
+
+  // Subscribe to remote control commands AND state requests
+  useEffect(() => {
+    const channel = supabase
+      .channel(`tv-control:${partyId}`)
+      .on('broadcast', { event: 'navigate' }, ({ payload }) => {
+        console.log('Remote command received:', payload);
+        if (payload.action === 'next') {
+          setCurrentIndex(prev => Math.min(prev + 1, photosRef.current.length - 1));
+        } else if (payload.action === 'prev') {
+          setCurrentIndex(prev => Math.max(prev - 1, 0));
+        }
+      })
+      .on('broadcast', { event: 'toggle-fullscreen' }, () => {
+        console.log('Fullscreen toggle received from remote');
+        setIsFullscreen(prev => !prev);
+      })
+      .on('broadcast', { event: 'request-state' }, () => {
+        console.log('State request received from remote');
+        // Broadcast current state immediately
+        broadcastCurrentState();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [partyId, supabase, broadcastCurrentState]);
 
   // Set up persistent state broadcast channel
   useEffect(() => {
