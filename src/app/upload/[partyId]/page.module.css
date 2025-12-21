@@ -1,6 +1,13 @@
-.container {
+.pageContainer {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
+}
+
+.container {
+  flex: 1;
   padding: 1.5rem 1rem;
+  padding-bottom: 80px; /* Space for bottom nav */
   position: relative;
   display: flex;
   flex-direction: column;
@@ -165,4 +172,62 @@
     transform: scale(1.2);
     opacity: 0.8;
   }
+}
+
+/* Tab content area */
+.tabContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Bottom Navigation */
+.bottomNav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
+/* Remote Control Tab */
+.remoteContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 2rem 1rem;
+  gap: 2rem;
+  text-align: center;
+}
+
+.remoteStatus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  min-width: 250px;
+}
+
+.remoteControls {
+  display: flex;
+  gap: 3rem;
+  padding: 2rem;
+}
+
+.navButton {
+  width: 80px !important;
+  height: 80px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.remoteWaiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
 }

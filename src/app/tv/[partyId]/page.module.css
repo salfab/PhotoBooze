@@ -4,14 +4,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #000;
+  background-image: url('/background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   overflow: hidden;
+  position: relative;
 }
 
 .waitingContainer {
   text-align: center;
-  color: #fff;
   padding: 2rem;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
 }
 
 .partyId {
@@ -21,56 +27,94 @@
   border-radius: 8px;
 }
 
-.slideshow {
+.stackContainer {
+  position: relative;
   width: 100%;
   height: 100%;
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
-  position: relative;
-  animation: fadeIn 0.5s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.overlay {
+/* Polaroid card styling */
+.polaroid {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
-  padding: 2rem;
+  cursor: default;
+  filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.4));
 }
 
-.photoInfo {
+.polaroidInner {
+  background: white;
+  padding: 12px 12px 50px 12px;
+  border-radius: 2px;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 0 40px rgba(0, 0, 0, 0.02);
+}
+
+.polaroidImage {
+  width: 400px;
+  height: 300px;
+  object-fit: cover;
+  display: block;
+  background: #f0f0f0;
+}
+
+.polaroidCaption {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  right: 12px;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 2px;
 }
 
-.uploaderName {
-  color: #fff;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+.polaroidAuthor {
+  font-family: 'Caveat', 'Comic Sans MS', cursive;
+  font-size: 18px;
+  color: #333;
+  font-weight: 500;
 }
 
-.comment {
-  color: #fff;
+.polaroidComment {
+  font-family: 'Caveat', 'Comic Sans MS', cursive;
+  font-size: 14px;
+  color: #666;
   font-style: italic;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.photoCount {
-  color: rgba(255, 255, 255, 0.8);
-  background-color: rgba(0, 0, 0, 0.5);
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  align-self: flex-start;
+/* Photo counter */
+.counter {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  backdrop-filter: blur(10px);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .polaroidImage {
+    width: 280px;
+    height: 210px;
+  }
+  
+  .polaroidInner {
+    padding: 8px 8px 40px 8px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .polaroidImage {
+    width: 500px;
+    height: 375px;
+  }
 }

@@ -8,11 +8,11 @@ import { generateJoinToken, hashJoinToken } from '@/lib/auth/tokens';
 
 export async function POST(
   request: Request,
-  { params }: { params: { partyId: string } }
+  { params }: { params: Promise<{ partyId: string }> }
 ) {
   try {
     const supabase = createServerClient();
-    const partyId = params.partyId;
+    const { partyId } = await params;
 
     // Generate a new join token
     const joinToken = generateJoinToken();

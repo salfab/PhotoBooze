@@ -14,6 +14,9 @@ import {
   Fab,
   Card,
   CardMedia,
+  BottomNavigation,
+  BottomNavigationAction,
+  Paper,
 } from '@mui/material';
 import {
   CameraAlt as CameraIcon,
@@ -22,8 +25,12 @@ import {
   Close as CloseIcon,
   Tv as TvIcon,
   Timer as TimerIcon,
+  SettingsRemote as RemoteIcon,
+  NavigateBefore as PrevIcon,
+  NavigateNext as NextIcon,
 } from '@mui/icons-material';
 import { processImage, type ProcessedImage } from '@/lib/image';
+import { createClient } from '@/lib/supabase/client';
 import styles from './page.module.css';
 
 interface UploadedPhoto {
@@ -37,6 +44,13 @@ interface PendingPhoto {
   file: File;
   preview: string;
   comment: string;
+}
+
+interface TVState {
+  currentIndex: number;
+  totalPhotos: number;
+  uploaderName?: string;
+  comment?: string;
 }
 
 export default function UploadPage() {
@@ -55,9 +69,12 @@ export default function UploadPage() {
   const [showCamera, setShowCamera] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const [tvState, setTvState] = useState<TVState | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const supabaseRef = useRef(createClient());
 
   // Get user's display name from session
   useEffect(() => {
@@ -93,6 +110,44 @@ export default function UploadPage() {
     };
     checkMobile();
   }, []);
+
+  // Listen for TV state broadcasts (for remote control)
+  useEffect(() => {
+    if (activeTab !== 1) return; // Only listen when on Remote tab
+
+    const supabase = supabaseRef.current;
+    const channel = supabase.channel(`tv-state:${partyId}`);
+
+    channel
+      .on('broadcast', { event: 'state' }, ({ payload }) => {
+        setTvState(payload as TVState);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [partyId, activeTab]);
+
+  // Send navigation command to TV
+  const sendNavigationCommand = useCallback((action: 'prev' | 'next') => {
+    const supabase = supabaseRef.current;
+    const channel = supabase.channel(`tv-control:${partyId}`);
+    
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        channel.send({
+          type: 'broadcast',
+          event: 'navigate',
+          payload: { action },
+        });
+        // Unsubscribe after sending
+        setTimeout(() => {
+          supabase.removeChannel(channel);
+        }, 100);
+      }
+    });
+  }, [partyId]);
 
   const uploadPhoto = useCallback(async (
     file: File,
@@ -311,46 +366,9 @@ export default function UploadPage() {
     window.open(`/tv/${partyId}`, '_blank');
   }, [partyId]);
 
-  return (
-    <Container maxWidth="sm" className={styles.container}>
-      <Box className={styles.header}>
-        <Typography variant="h5" component="h1" gutterBottom>
-          Hi {displayName}! 👋
-        </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          {uploadedPhotos.length} {uploadedPhotos.length === 1 ? 'photo' : 'photos'} shared
-        </Typography>
-      </Box>
-
-      {error && (
-        <Alert severity="error" onClose={() => setError(null)} className={styles.alert}>
-          {error}
-        </Alert>
-      )}
-
-      {uploadSuccess && (
-        <Alert severity="success" className={styles.alert}>
-          Photo uploaded successfully! 🎉
-        </Alert>
-      )}
-
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleInputChange}
-        className={styles.hiddenInput}
-      />
-
-      <input
-        ref={galleryInputRef}
-        type="file"
-        accept="image/*,.heic,.heif"
-        onChange={handleInputChange}
-        className={styles.hiddenInput}
-      />
-
+  // Render Camera Tab content
+  const renderCameraTab = () => (
+    <>
       {!pendingPhoto && !showCamera ? (
         <>
           <Box className={styles.buttonContainer}>
@@ -484,6 +502,140 @@ export default function UploadPage() {
           </Box>
         </Box>
       ) : null}
-    </Container>
+    </>
+  );
+
+  // Render Remote Tab content
+  const renderRemoteTab = () => (
+    <Box className={styles.remoteContainer}>
+      <Typography variant="h6" gutterBottom>
+        TV Remote Control
+      </Typography>
+      
+      {tvState ? (
+        <>
+          <Box className={styles.remoteStatus}>
+            <Typography variant="body1" color="text.secondary">
+              📷 Photo {tvState.currentIndex + 1} of {tvState.totalPhotos}
+            </Typography>
+            {tvState.uploaderName && (
+              <Typography variant="body2" color="text.secondary">
+                by {tvState.uploaderName}
+              </Typography>
+            )}
+            {tvState.comment && (
+              <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                &ldquo;{tvState.comment}&rdquo;
+              </Typography>
+            )}
+          </Box>
+
+          <Box className={styles.remoteControls}>
+            <Fab
+              color="primary"
+              size="large"
+              onClick={() => sendNavigationCommand('prev')}
+              disabled={tvState.currentIndex === 0}
+              className={styles.navButton}
+            >
+              <PrevIcon fontSize="large" />
+            </Fab>
+            <Fab
+              color="primary"
+              size="large"
+              onClick={() => sendNavigationCommand('next')}
+              disabled={tvState.currentIndex >= tvState.totalPhotos - 1}
+              className={styles.navButton}
+            >
+              <NextIcon fontSize="large" />
+            </Fab>
+          </Box>
+        </>
+      ) : (
+        <Box className={styles.remoteWaiting}>
+          <CircularProgress size={40} />
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+            Connecting to TV...
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Make sure the TV view is open
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<TvIcon />}
+            onClick={openTvView}
+            sx={{ mt: 2 }}
+          >
+            Open TV Display
+          </Button>
+        </Box>
+      )}
+    </Box>
+  );
+
+  return (
+    <Box className={styles.pageContainer}>
+      <Container maxWidth="sm" className={styles.container}>
+        <Box className={styles.header}>
+          <Typography variant="h5" component="h1" gutterBottom>
+            Hi {displayName}! 👋
+          </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            {uploadedPhotos.length} {uploadedPhotos.length === 1 ? 'photo' : 'photos'} shared
+          </Typography>
+        </Box>
+
+        {error && (
+          <Alert severity="error" onClose={() => setError(null)} className={styles.alert}>
+            {error}
+          </Alert>
+        )}
+
+        {uploadSuccess && (
+          <Alert severity="success" className={styles.alert}>
+            Photo uploaded successfully! 🎉
+          </Alert>
+        )}
+
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleInputChange}
+          className={styles.hiddenInput}
+        />
+
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*,.heic,.heif"
+          onChange={handleInputChange}
+          className={styles.hiddenInput}
+        />
+
+        <Box className={styles.tabContent}>
+          {activeTab === 0 ? renderCameraTab() : renderRemoteTab()}
+        </Box>
+      </Container>
+
+      {/* Bottom Navigation */}
+      <Paper className={styles.bottomNav} elevation={3}>
+        <BottomNavigation
+          value={activeTab}
+          onChange={(_, newValue) => setActiveTab(newValue)}
+          showLabels
+        >
+          <BottomNavigationAction 
+            label="Camera" 
+            icon={<CameraIcon />} 
+          />
+          <BottomNavigationAction 
+            label="Remote" 
+            icon={<RemoteIcon />} 
+          />
+        </BottomNavigation>
+      </Paper>
+    </Box>
   );
 }
