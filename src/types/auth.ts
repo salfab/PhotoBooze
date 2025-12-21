@@ -8,4 +8,5 @@ export interface SessionPayload {
 export interface SessionData {
   partyId: string;
   uploaderId: string;
+  expiresAt: Date;
 }
