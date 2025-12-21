@@ -148,15 +148,16 @@ export default function UploadPage() {
     
     controlChannel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
+        console.log('Sending request-state command');
         controlChannel.send({
           type: 'broadcast',
           event: 'request-state',
           payload: {},
         });
-        // Unsubscribe after sending
+        // Unsubscribe after a longer delay to ensure delivery
         setTimeout(() => {
           supabase.removeChannel(controlChannel);
-        }, 100);
+        }, 500);
       }
     });
   }, [partyId]);
@@ -168,15 +169,16 @@ export default function UploadPage() {
     
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
+        console.log('Sending navigation command:', action);
         channel.send({
           type: 'broadcast',
           event: 'navigate',
           payload: { action },
         });
-        // Unsubscribe after sending
+        // Unsubscribe after a longer delay to ensure delivery
         setTimeout(() => {
           supabase.removeChannel(channel);
-        }, 100);
+        }, 500);
       }
     });
   }, [partyId]);
@@ -188,15 +190,16 @@ export default function UploadPage() {
     
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
+        console.log('Sending toggle-fullscreen command');
         channel.send({
           type: 'broadcast',
           event: 'toggle-fullscreen',
           payload: {},
         });
-        // Unsubscribe after sending
+        // Unsubscribe after a longer delay to ensure delivery
         setTimeout(() => {
           supabase.removeChannel(channel);
-        }, 100);
+        }, 500);
       }
     });
   }, [partyId]);
