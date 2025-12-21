@@ -1,84 +1,24 @@
-export type PartyStatus = "active" | "closed";
+// Re-export and alias the generated Supabase types
+import type { Database } from './supabase';
 
-export interface Party {
-  id: string;
-  created_at: string;
-  status: PartyStatus;
-  closed_at: string | null;
-  join_token_hash: string;
-}
+export type PartyStatus = 'active' | 'closed';
 
-export interface Uploader {
-  id: string;
-  party_id: string;
-  created_at: string;
-  display_name: string | null;
-}
+// Table row types
+export type Party = Database['public']['Tables']['parties']['Row'];
+export type Uploader = Database['public']['Tables']['uploaders']['Row'];
+export type Photo = Database['public']['Tables']['photos']['Row'];
 
-export interface Photo {
-  id: string;
-  party_id: string;
-  uploader_id: string;
-  created_at: string;
-  original_path: string;
-  tv_path: string;
-  original_mime: string | null;
-  tv_mime: string | null;
-  original_bytes: number | null;
-  tv_bytes: number | null;
-  comment: string | null;
-}
+// Insert types
+export type PartyInsert = Database['public']['Tables']['parties']['Insert'];
+export type UploaderInsert = Database['public']['Tables']['uploaders']['Insert'];
+export type PhotoInsert = Database['public']['Tables']['photos']['Insert'];
+
+// Update types
+export type PartyUpdate = Database['public']['Tables']['parties']['Update'];
+export type UploaderUpdate = Database['public']['Tables']['uploaders']['Update'];
+export type PhotoUpdate = Database['public']['Tables']['photos']['Update'];
 
 // For API responses with joined data
 export interface PhotoWithUploader extends Photo {
-  uploader: Pick<Uploader, "display_name"> | null;
-}
-
-// Insert types (without auto-generated fields)
-export interface PartyInsert {
-  id?: string;
-  status?: PartyStatus;
-  join_token_hash: string;
-}
-
-export interface UploaderInsert {
-  id?: string;
-  party_id: string;
-  display_name?: string | null;
-}
-
-export interface PhotoInsert {
-  id?: string;
-  party_id: string;
-  uploader_id: string;
-  original_path: string;
-  tv_path: string;
-  original_mime?: string | null;
-  tv_mime?: string | null;
-  original_bytes?: number | null;
-  tv_bytes?: number | null;
-  comment?: string | null;
-}
-
-// Supabase Database type definition
-export interface Database {
-  public: {
-    Tables: {
-      parties: {
-        Row: Party;
-        Insert: PartyInsert;
-        Update: Partial<PartyInsert> & { closed_at?: string | null };
-      };
-      uploaders: {
-        Row: Uploader;
-        Insert: UploaderInsert;
-        Update: Partial<UploaderInsert>;
-      };
-      photos: {
-        Row: Photo;
-        Insert: PhotoInsert;
-        Update: Partial<PhotoInsert>;
-      };
-    };
-  };
+  uploader: Pick<Uploader, 'display_name'> | null;
 }
