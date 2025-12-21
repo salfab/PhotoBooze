@@ -1,6 +1,7 @@
 .container {
   min-height: 100vh;
   padding: 2rem 1rem;
+  position: relative;
 }
 
 .header {
@@ -14,6 +15,14 @@
   margin-bottom: 1rem;
 }
 
+.alert {
+  margin-bottom: 1rem;
+}
+
+.hiddenInput {
+  display: none;
+}
+
 .uploadArea {
   background-color: #f5f5f5;
   border: 2px dashed #ccc;
@@ -22,9 +31,67 @@
   text-align: center;
   cursor: pointer;
   transition: border-color 0.2s, background-color 0.2s;
+  margin-bottom: 1rem;
 }
 
-.uploadArea:hover {
+.uploadArea:hover,
+.uploadArea:focus {
   border-color: var(--primary-color, #1976d2);
   background-color: #e3f2fd;
+  outline: none;
+}
+
+.uploadIcon {
+  font-size: 3rem !important;
+  color: #999;
+  margin-bottom: 1rem;
+}
+
+.tvButton {
+  margin-bottom: 2rem;
+}
+
+.uploadList {
+  margin-top: 1rem;
+}
+
+.uploadCard {
+  border-radius: 8px;
+}
+
+.uploadCardContent {
+  padding: 1rem !important;
+}
+
+.uploadInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.fileName {
+  flex: 1;
+  min-width: 0;
+}
+
+.progressContainer {
+  margin-top: 0.5rem;
+}
+
+.progress {
+  margin-bottom: 0.25rem;
+}
+
+.loadingOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
 }
