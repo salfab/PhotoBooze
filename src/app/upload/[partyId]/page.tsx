@@ -21,6 +21,7 @@ import {
   Send as SendIcon,
   Close as CloseIcon,
   Tv as TvIcon,
+  Timer as TimerIcon,
 } from '@mui/icons-material';
 import { processImage, type ProcessedImage } from '@/lib/image';
 import styles from './page.module.css';
@@ -52,8 +53,11 @@ export default function UploadPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get user's display name from session
   useEffect(() => {
@@ -81,6 +85,14 @@ export default function UploadPage() {
     }
     getSessionInfo();
   }, [partyId, router]);
+
+  // Detect if mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    };
+    checkMobile();
+  }, []);
 
   const uploadPhoto = useCallback(async (
     file: File,
@@ -139,6 +151,13 @@ export default function UploadPage() {
   }, []);
 
   const handleCameraClick = useCallback(async () => {
+    // On mobile, use native camera input
+    if (isMobile) {
+      cameraInputRef.current?.click();
+      return;
+    }
+
+    // On desktop, use webcam
     try {
       setError(null);
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -161,7 +180,7 @@ export default function UploadPage() {
       // Fallback to file input
       cameraInputRef.current?.click();
     }
-  }, []);
+  }, [isMobile]);
 
   const handleCapturePhoto = useCallback(() => {
     if (!videoRef.current || !streamRef.current) return;
@@ -197,7 +216,30 @@ export default function UploadPage() {
     }, 'image/jpeg', 0.9);
   }, []);
 
+  const handleTimerCapture = useCallback(() => {
+    setCountdown(5);
+    
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          countdownTimerRef.current = null;
+          handleCapturePhoto();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    countdownTimerRef.current = timer;
+  }, [handleCapturePhoto]);
+
   const handleCancelCamera = useCallback(() => {
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    setCountdown(null);
     streamRef.current?.getTracks().forEach(track => track.stop());
     streamRef.current = null;
     setShowCamera(false);
@@ -259,6 +301,9 @@ export default function UploadPage() {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+      }
     };
   }, []);
 
@@ -293,6 +338,7 @@ export default function UploadPage() {
         ref={cameraInputRef}
         type="file"
         accept="image/*"
+        capture="environment"
         onChange={handleInputChange}
         className={styles.hiddenInput}
       />
@@ -363,13 +409,31 @@ export default function UploadPage() {
               playsInline
               className={styles.video}
             />
+            
+            {countdown !== null && (
+              <Box className={styles.countdownOverlay}>
+                <Typography variant="h1" className={styles.countdownText}>
+                  {countdown}
+                </Typography>
+              </Box>
+            )}
           </Box>
 
           <Box className={styles.captureSection}>
+            <IconButton
+              color="primary"
+              size="large"
+              onClick={handleTimerCapture}
+              disabled={countdown !== null}
+              className={styles.timerButton}
+            >
+              <TimerIcon fontSize="large" />
+            </IconButton>
             <Fab
               color="primary"
               size="large"
               onClick={handleCapturePhoto}
+              disabled={countdown !== null}
               className={styles.captureButton}
             >
               <CameraIcon fontSize="large" />
