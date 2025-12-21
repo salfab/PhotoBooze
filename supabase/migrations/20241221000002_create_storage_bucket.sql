@@ -9,7 +9,10 @@ VALUES (
   26214400, -- 25MB in bytes
   ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  public = true,
+  file_size_limit = 26214400,
+  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
 -- Set up storage policies for the bucket
 CREATE POLICY "Public Access"

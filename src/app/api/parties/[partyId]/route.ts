@@ -154,15 +154,37 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // First, delete all photos from storage
     const partyFolder = getPartyFolder(partyId);
-    const { data: files } = await supabase.storage
+    const { data: files, error: listError } = await supabase.storage
       .from(STORAGE_BUCKET)
       .list(partyFolder, { limit: 1000 });
 
+    if (listError) {
+      console.error('Failed to list storage files:', listError);
+      return NextResponse.json(
+        { 
+          error: 'Failed to list storage files',
+          details: `Bucket: ${STORAGE_BUCKET}, Path: ${partyFolder}, Error: ${listError.message}`
+        },
+        { status: 500 }
+      );
+    }
+
     if (files && files.length > 0) {
       const filePaths = files.map(f => `${partyFolder}/${f.name}`);
-      await supabase.storage
+      const { error: removeError } = await supabase.storage
         .from(STORAGE_BUCKET)
         .remove(filePaths);
+
+      if (removeError) {
+        console.error('Failed to remove storage files:', removeError);
+        return NextResponse.json(
+          { 
+            error: 'Failed to remove storage files',
+            details: `Bucket: ${STORAGE_BUCKET}, Files: ${filePaths.length}, Error: ${removeError.message}`
+          },
+          { status: 500 }
+        );
+      }
     }
 
     // Delete photos records (cascade will handle this, but be explicit)

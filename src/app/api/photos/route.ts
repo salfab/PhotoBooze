@@ -96,7 +96,10 @@ export async function POST(request: NextRequest) {
     if (originalError) {
       console.error('Failed to upload original:', originalError);
       return NextResponse.json(
-        { error: 'Failed to upload original photo' },
+        { 
+          error: 'Failed to upload original photo',
+          details: `Bucket: ${STORAGE_BUCKET}, Path: ${originalPath}, Error: ${originalError.message}`
+        },
         { status: 500 }
       );
     }
@@ -114,7 +117,10 @@ export async function POST(request: NextRequest) {
       await supabase.storage.from(STORAGE_BUCKET).remove([originalPath]);
       console.error('Failed to upload TV version:', tvError);
       return NextResponse.json(
-        { error: 'Failed to upload TV photo' },
+        { 
+          error: 'Failed to upload TV photo',
+          details: `Bucket: ${STORAGE_BUCKET}, Path: ${tvPath}, Error: ${tvError.message}`
+        },
         { status: 500 }
       );
     }

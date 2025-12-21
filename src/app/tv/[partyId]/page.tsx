@@ -54,6 +54,7 @@ export default function TvPage() {
   
   const supabase = useMemo(() => createClient(), []);
   const stateChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const photosRef = useRef<PhotoWithUploader[]>([]);
 
   // Track viewport size for scatter calculations
   useEffect(() => {
@@ -64,6 +65,11 @@ export default function TvPage() {
     window.addEventListener('resize', updateViewport);
     return () => window.removeEventListener('resize', updateViewport);
   }, []);
+
+  // Keep photosRef in sync with photos state
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
 
   // Load initial photos
   useEffect(() => {
@@ -138,7 +144,7 @@ export default function TvPage() {
       .on('broadcast', { event: 'navigate' }, ({ payload }) => {
         console.log('Remote command received:', payload);
         if (payload.action === 'next') {
-          setCurrentIndex(prev => Math.min(prev + 1, photos.length - 1));
+          setCurrentIndex(prev => Math.min(prev + 1, photosRef.current.length - 1));
         } else if (payload.action === 'prev') {
           setCurrentIndex(prev => Math.max(prev - 1, 0));
         }
@@ -158,7 +164,7 @@ export default function TvPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [partyId, supabase, photos.length]);
+  }, [partyId, supabase]);
 
   const getTvImageUrl = useCallback((photo: Photo): string => {
     const { data } = supabase.storage
@@ -169,7 +175,25 @@ export default function TvPage() {
 
   // Function to broadcast current state - can be called on demand
   const broadcastCurrentState = useCallback(() => {
-    if (photos.length === 0 || !stateChannelRef.current) return;
+    if (!stateChannelRef.current) return;
+    
+    if (photos.length === 0) {
+      // Broadcast "no photos" state
+      console.log('Broadcasting TV state: No photos yet');
+      stateChannelRef.current.send({
+        type: 'broadcast',
+        event: 'state',
+        payload: {
+          currentIndex: 0,
+          totalPhotos: 0,
+          uploaderName: null,
+          comment: null,
+          photoUrl: null,
+          isFullscreen,
+        },
+      });
+      return;
+    }
     
     const currentPhoto = photos[currentIndex];
     const photoUrl = currentPhoto ? getTvImageUrl(currentPhoto) : null;
@@ -197,7 +221,7 @@ export default function TvPage() {
       if (status === 'SUBSCRIBED') {
         console.log('State broadcast channel ready');
         stateChannelRef.current = channel;
-        // Broadcast initial state once subscribed
+        // Broadcast current state immediately when channel is ready
         broadcastCurrentState();
       }
     });

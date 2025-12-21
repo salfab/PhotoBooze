@@ -73,7 +73,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           .download(photo.original_path);
 
         if (downloadError || !fileData) {
-          console.error(`Failed to download photo ${photo.id}:`, downloadError);
+          console.error(
+            `Failed to download photo ${photo.id}:`,
+            `Bucket: ${STORAGE_BUCKET}, Path: ${photo.original_path}, Error: ${downloadError?.message || 'No data'}`
+          );
           continue;
         }
 
