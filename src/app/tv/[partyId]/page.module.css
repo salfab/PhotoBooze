@@ -198,3 +198,37 @@
     max-height: min(60vh, 850px);
   }
 }
+
+/* QR Code Overlay - bottom right corner */
+.qrOverlay {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10000;
+  animation: slideInRight 0.5s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.qrCard {
+  background: white;
+  padding: 1rem;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.qrImage {
+  display: block;
+  width: 300px;
+  height: 300px;
+  border-radius: 8px;
+}

@@ -30,7 +30,9 @@ import {
   SettingsRemote as RemoteIcon,
   NavigateBefore as PrevIcon,
   NavigateNext as NextIcon,
+  QrCode2 as QrCodeIcon,
 } from '@mui/icons-material';
+import QRCode from 'qrcode';
 import { processImage, type ProcessedImage } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
 import styles from './page.module.css';
@@ -77,6 +79,7 @@ export default function UploadPage() {
   const [activeTab, setActiveTab] = useState(0);
   const [tvState, setTvState] = useState<TVState | null>(null);
   const [partyName, setPartyName] = useState<string | null>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -115,6 +118,27 @@ export default function UploadPage() {
     }
     getSessionInfo();
   }, [partyId, router]);
+
+  // Generate QR code for party join URL
+  useEffect(() => {
+    async function generateQR() {
+      try {
+        const joinUrl = `${window.location.origin}/upload/${partyId}`;
+        const qrDataUrl = await QRCode.toDataURL(joinUrl, {
+          width: 300,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#ffffff',
+          },
+        });
+        setQrCodeUrl(qrDataUrl);
+      } catch (err) {
+        console.error('Failed to generate QR code:', err);
+      }
+    }
+    generateQR();
+  }, [partyId]);
 
   // Detect if mobile device
   useEffect(() => {
@@ -205,6 +229,25 @@ export default function UploadPage() {
           payload: {},
         });
         // Unsubscribe after a longer delay to ensure delivery
+        setTimeout(() => {
+          supabase.removeChannel(channel);
+        }, 500);
+      }
+    });
+  }, [partyId]);
+
+  const sendShowQRCommand = useCallback(() => {
+    const supabase = supabaseRef.current;
+    const channel = supabase.channel(`tv-control:${partyId}`);
+    
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('Sending show QR command');
+        channel.send({
+          type: 'broadcast',
+          event: 'show-qr',
+          payload: {},
+        });
         setTimeout(() => {
           supabase.removeChannel(channel);
         }, 500);
@@ -658,6 +701,37 @@ export default function UploadPage() {
     </Box>
   );
 
+  const renderQRTab = () => (
+    <Box className={styles.remoteContainer}>
+      <Typography variant="h6" gutterBottom>Share Party</Typography>
+      {qrCodeUrl ? (
+        <>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
+            Scan this QR code to join the party
+          </Typography>
+          <Box sx={{ 
+            backgroundColor: 'white', 
+            padding: '1rem', 
+            borderRadius: '16px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+          }}>
+            <img src={qrCodeUrl} alt="Party QR Code" className={styles.qrCodeImage} />
+          </Box>
+          <Button
+            variant="contained"
+            size="large"
+            onClick={sendShowQRCommand}
+            sx={{ mt: 3 }}
+          >
+            Show QR on TV (60s)
+          </Button>
+        </>
+      ) : (
+        <CircularProgress />
+      )}
+    </Box>
+  );
+
   return (
     <Box className={styles.pageContainer}>
       <Container maxWidth="sm" className={styles.container}>
@@ -705,7 +779,7 @@ export default function UploadPage() {
         />
 
         <Box className={styles.tabContent}>
-          {activeTab === 0 ? renderCameraTab() : renderRemoteTab()}
+          {activeTab === 0 ? renderCameraTab() : activeTab === 1 ? renderRemoteTab() : renderQRTab()}
         </Box>
       </Container>
 
@@ -723,6 +797,10 @@ export default function UploadPage() {
           <BottomNavigationAction 
             label="Remote" 
             icon={<RemoteIcon />} 
+          />
+          <BottomNavigationAction 
+            label="Share" 
+            icon={<QrCodeIcon />} 
           />
         </BottomNavigation>
       </Paper>

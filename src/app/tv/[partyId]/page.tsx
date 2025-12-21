@@ -51,10 +51,13 @@ export default function TvPage() {
   const [error, setError] = useState<string | null>(null);
   const [viewport, setViewport] = useState({ width: 1920, height: 1080 });
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   
   const supabase = useMemo(() => createClient(), []);
   const stateChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const photosRef = useRef<PhotoWithUploader[]>([]);
+  const qrTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Track viewport size for scatter calculations
   useEffect(() => {
@@ -65,6 +68,28 @@ export default function TvPage() {
     window.addEventListener('resize', updateViewport);
     return () => window.removeEventListener('resize', updateViewport);
   }, []);
+
+  // Generate QR code for party join URL
+  useEffect(() => {
+    async function generateQR() {
+      try {
+        const QRCode = (await import('qrcode')).default;
+        const joinUrl = `${window.location.origin}/upload/${partyId}`;
+        const qrDataUrl = await QRCode.toDataURL(joinUrl, {
+          width: 400,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#ffffff',
+          },
+        });
+        setQrCodeUrl(qrDataUrl);
+      } catch (err) {
+        console.error('Failed to generate QR code:', err);
+      }
+    }
+    generateQR();
+  }, [partyId]);
 
   // Keep photosRef in sync with photos state
   useEffect(() => {
@@ -205,10 +230,27 @@ export default function TvPage() {
         // Broadcast current state immediately
         broadcastCurrentState();
       })
+      .on('broadcast', { event: 'show-qr' }, () => {
+        console.log('Show QR command received from remote');
+        // Clear any existing timer
+        if (qrTimerRef.current) {
+          clearTimeout(qrTimerRef.current);
+        }
+        // Show QR code
+        setShowQR(true);
+        // Hide after 60 seconds
+        qrTimerRef.current = setTimeout(() => {
+          setShowQR(false);
+          qrTimerRef.current = null;
+        }, 60000);
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      if (qrTimerRef.current) {
+        clearTimeout(qrTimerRef.current);
+      }
     };
   }, [partyId, supabase, broadcastCurrentState]);
 
@@ -378,6 +420,15 @@ export default function TvPage() {
               </div>
             </div>
           </div>
+        </Box>
+      )}
+
+      {/* QR Code overlay - bottom right corner */}
+      {showQR && qrCodeUrl && (
+        <Box className={styles.qrOverlay}>
+          <Box className={styles.qrCard}>
+            <img src={qrCodeUrl} alt="Join Party QR Code" className={styles.qrImage} />
+          </Box>
         </Box>
       )}
     </Box>
