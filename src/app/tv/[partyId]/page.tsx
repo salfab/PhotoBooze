@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -53,6 +53,7 @@ export default function TvPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   const supabase = useMemo(() => createClient(), []);
+  const stateChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Track viewport size for scatter calculations
   useEffect(() => {
@@ -168,36 +169,44 @@ export default function TvPage() {
 
   // Function to broadcast current state - can be called on demand
   const broadcastCurrentState = useCallback(() => {
-    if (photos.length === 0) return;
+    if (photos.length === 0 || !stateChannelRef.current) return;
     
     const currentPhoto = photos[currentIndex];
     const photoUrl = currentPhoto ? getTvImageUrl(currentPhoto) : null;
     
-    // Use a simpler approach - single channel subscription
+    console.log('Broadcasting TV state:', { currentIndex, totalPhotos: photos.length, isFullscreen });
+    stateChannelRef.current.send({
+      type: 'broadcast',
+      event: 'state',
+      payload: {
+        currentIndex,
+        totalPhotos: photos.length,
+        uploaderName: currentPhoto?.uploader?.display_name || 'Anonymous',
+        comment: currentPhoto?.comment || null,
+        photoUrl,
+        isFullscreen,
+      },
+    });
+  }, [currentIndex, photos, getTvImageUrl, isFullscreen]);
+
+  // Set up persistent state broadcast channel
+  useEffect(() => {
     const channel = supabase.channel(`tv-state:${partyId}`);
     
-    channel.subscribe(async (status) => {
+    channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        console.log('Broadcasting TV state:', { currentIndex, totalPhotos: photos.length, isFullscreen });
-        await channel.send({
-          type: 'broadcast',
-          event: 'state',
-          payload: {
-            currentIndex,
-            totalPhotos: photos.length,
-            uploaderName: currentPhoto?.uploader?.display_name || 'Anonymous',
-            comment: currentPhoto?.comment || null,
-            photoUrl,
-            isFullscreen,
-          },
-        });
-        // Clean up channel after sending
-        setTimeout(() => {
-          supabase.removeChannel(channel);
-        }, 100);
+        console.log('State broadcast channel ready');
+        stateChannelRef.current = channel;
+        // Broadcast initial state once subscribed
+        broadcastCurrentState();
       }
     });
-  }, [partyId, supabase, currentIndex, photos, getTvImageUrl, isFullscreen]);
+
+    return () => {
+      stateChannelRef.current = null;
+      supabase.removeChannel(channel);
+    };
+  }, [partyId, supabase, broadcastCurrentState]);
 
   // Broadcast state when it changes (including isFullscreen)
   useEffect(() => {
