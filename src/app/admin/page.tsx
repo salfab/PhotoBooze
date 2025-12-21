@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Container,
   Box,
@@ -40,6 +40,44 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
+
+  const loadParties = useCallback(async () => {
+    try {
+      const response = await fetch('/api/parties');
+      
+      if (!response.ok) {
+        throw new Error('Failed to load parties');
+      }
+
+      const data: Party[] = await response.json();
+      setParties(data);
+
+      // Generate QR codes for all parties
+      const qrCodes: Record<string, string> = {};
+      for (const party of data) {
+        if (party.joinToken) {
+          const joinUrl = `${window.location.origin}/join/${party.id}?token=${party.joinToken}`;
+          const qrDataUrl = await QRCode.toDataURL(joinUrl, {
+            width: 300,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#ffffff',
+            },
+          });
+          qrCodes[party.id] = qrDataUrl;
+        }
+      }
+      setQrDataUrls(qrCodes);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load parties');
+    }
+  }, []);
+
+  // Load existing parties on mount
+  useEffect(() => {
+    loadParties();
+  }, [loadParties]);
 
   const createParty = useCallback(async () => {
     setLoading(true);
@@ -186,7 +224,7 @@ export default function AdminPage() {
                 </Typography>
               </Box>
 
-              {qrDataUrls[party.id] && (
+              {qrDataUrls[party.id] ? (
                 <Box className={styles.qrContainer}>
                   <a
                     href={`/join/${party.id}?token=${party.joinToken}`}
@@ -202,6 +240,45 @@ export default function AdminPage() {
                   </a>
                   <Typography variant="caption" color="text.secondary">
                     Guests scan this QR code to join
+                  </Typography>
+                </Box>
+              ) : (
+                <Box className={styles.qrContainer}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<QrCodeIcon />}
+                    onClick={async () => {
+                      // Regenerate join token
+                      try {
+                        const response = await fetch(`/api/parties/${party.id}/regenerate-token`, {
+                          method: 'POST',
+                        });
+                        if (response.ok) {
+                          const { joinToken } = await response.json();
+                          const joinUrl = `${window.location.origin}/join/${party.id}?token=${joinToken}`;
+                          const qrDataUrl = await QRCode.toDataURL(joinUrl, {
+                            width: 300,
+                            margin: 2,
+                            color: {
+                              dark: '#000000',
+                              light: '#ffffff',
+                            },
+                          });
+                          setQrDataUrls(prev => ({ ...prev, [party.id]: qrDataUrl }));
+                          setParties(prev =>
+                            prev.map(p => (p.id === party.id ? { ...p, joinToken } : p))
+                          );
+                        }
+                      } catch (err) {
+                        setError('Failed to generate QR code');
+                      }
+                    }}
+                  >
+                    Generate QR Code
+                  </Button>
+                  <Typography variant="caption" color="text.secondary">
+                    Create a new join link for this party
                   </Typography>
                 </Box>
               )}

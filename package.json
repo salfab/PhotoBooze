@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:setup": "node scripts/dev-setup.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "setup:storage": "node scripts/setup-storage.mjs"
+    "setup:storage": "node scripts/setup-storage.mjs",
+    "postinstall": "node scripts/dev-setup.mjs || true"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

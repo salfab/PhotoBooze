@@ -60,26 +60,42 @@ export default function TvPage() {
           filter: `party_id=eq.${partyId}`,
         },
         async (payload) => {
+          console.log('New photo received via Realtime:', payload.new);
+          
           // Fetch the new photo with uploader info
-          const { data: newPhoto } = await supabase
+          const { data: newPhoto, error: fetchError } = await supabase
             .from('photos')
             .select('*, uploader:uploaders(display_name)')
             .eq('id', payload.new.id)
             .single();
 
+          if (fetchError) {
+            console.error('Error fetching new photo:', fetchError);
+            return;
+          }
+
           if (newPhoto) {
-            setPhotos(prev => [...prev, newPhoto as PhotoWithUploader]);
+            console.log('Fetched new photo details:', newPhoto);
+            setPhotos(prev => {
+              const updatedPhotos = [...prev, newPhoto as PhotoWithUploader];
+              console.log('Photos array updated, new length:', updatedPhotos.length);
+              // Jump to the new photo
+              setCurrentIndex(updatedPhotos.length - 1);
+              return updatedPhotos;
+            });
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [partyId, supabase]);
 
-  // Slideshow timer
+  // Slideshow timer - depends on both photos and currentIndex
   useEffect(() => {
     if (photos.length <= 1) return;
 
@@ -88,13 +104,14 @@ export default function TvPage() {
     }, SLIDESHOW_INTERVAL);
 
     return () => clearInterval(timer);
-  }, [photos.length]);
+  }, [photos.length, currentIndex]);
 
   // Get public URL for TV image
   const getTvImageUrl = useCallback((photo: Photo): string => {
     const { data } = supabase.storage
       .from(STORAGE_BUCKET)
       .getPublicUrl(photo.tv_path);
+    console.log('Getting image URL for photo:', photo.id, 'path:', photo.tv_path, 'url:', data.publicUrl);
     return data.publicUrl;
   }, [supabase]);
 
