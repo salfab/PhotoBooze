@@ -63,6 +63,7 @@ export default function UploadPage() {
   const partyId = params.partyId as string;
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const commentInputRef = useRef<HTMLInputElement>(null);
 
   const [displayName, setDisplayName] = useState<string>('');
   const [pendingPhoto, setPendingPhoto] = useState<PendingPhoto | null>(null);
@@ -387,6 +388,11 @@ export default function UploadPage() {
       // Clean up
       URL.revokeObjectURL(pendingPhoto.preview);
       setPendingPhoto(null);
+      
+      // Focus comment field after a short delay to allow UI to update
+      setTimeout(() => {
+        commentInputRef.current?.focus();
+      }, 100);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
@@ -532,6 +538,7 @@ export default function UploadPage() {
 
           <Box className={styles.commentSection}>
             <TextField
+              inputRef={commentInputRef}
               fullWidth
               multiline
               rows={2}
@@ -540,6 +547,7 @@ export default function UploadPage() {
               onChange={handleCommentChange}
               disabled={isUploading}
               className={styles.commentField}
+              variant="outlined"
             />
             <IconButton
               color="primary"

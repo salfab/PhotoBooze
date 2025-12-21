@@ -271,27 +271,15 @@ npx supabase login
 # Link your local project to the cloud project
 npx supabase link --project-ref <your-project-ref>
 
-# Push your database schema
+# Push your database schema and create storage bucket
 npx supabase db push
 ```
 
-This creates all tables and enables Realtime.
+This creates all tables, enables Realtime, and creates the `photobooze-images` storage bucket automatically.
 
 ---
 
-### Step 3: Create Storage Bucket
-
-The storage bucket needs to be created manually in Supabase Cloud:
-
-1. Go to your Supabase Dashboard → **Storage**
-2. Click **"New bucket"**
-3. Name: `photos`
-4. Check **"Public bucket"**
-5. Click **Create bucket**
-
----
-
-### Step 4: Deploy to Vercel
+### Step 3: Deploy to Vercel
 
 #### Option A: Via Vercel CLI (Recommended)
 
@@ -312,6 +300,12 @@ npx vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production
 npx vercel env add SUPABASE_SERVICE_ROLE_KEY production
 # Enter: your service role key (keep secret!)
 
+npx vercel env add SESSION_SECRET production
+# Enter: a random string at least 32 characters long (e.g., use openssl rand -base64 32)
+
+npx vercel env add NEXT_PUBLIC_APP_URL production
+# Enter: your Vercel deployment URL (e.g., https://photobooze.vercel.app)
+
 # Deploy to production
 npx vercel --prod
 ```
@@ -327,12 +321,14 @@ npx vercel --prod
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxxx.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your service role key |
+| `SESSION_SECRET` | Random 32+ character string |
+| `NEXT_PUBLIC_APP_URL` | Your Vercel deployment URL |
 
 4. Click **Deploy**
 
 ---
 
-### Step 5: Verify Deployment
+### Step 4: Verify Deployment
 
 1. Open your Vercel URL (e.g., `https://photobooze.vercel.app`)
 2. Go to `/admin` and create a test party
@@ -349,6 +345,8 @@ npx vercel --prod
 | `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anonymous/public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service role key (server-side only) |
+| `SESSION_SECRET` | ✅ | JWT session secret (min 32 chars, use `openssl rand -base64 32`) |
+| `NEXT_PUBLIC_APP_URL` | ✅ | Your deployment URL (e.g., https://photobooze.vercel.app) |
 
 > ⚠️ **Security**: Never commit secrets to git! The `.gitignore` already excludes `.env*` files.
 
