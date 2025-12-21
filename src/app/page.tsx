@@ -5,6 +5,9 @@ export default function Home() {
   return (
     <div className={styles.container}>
       <main className={styles.main}>
+        <div className={styles.logoContainer}>
+          <img src="/logo.png" alt="PhotoBooze" className={styles.logo} />
+        </div>
         <h1 className={styles.title}>PhotoBooze</h1>
         <p className={styles.description}>
           Party photo sharing with QR code guest access

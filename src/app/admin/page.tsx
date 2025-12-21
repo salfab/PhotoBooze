@@ -212,18 +212,18 @@ export default function AdminPage() {
   return (
     <Container maxWidth="md" className={styles.container}>
       <Box className={styles.header}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
           <Box
             component="img"
             src="/logo.png"
             alt="PhotoBooze"
-            sx={{ width: 48, height: 48 }}
+            sx={{ height: 120, width: 'auto' }}
           />
-          <Typography variant="h4" component="h1">
-            PhotoBooze Admin
-          </Typography>
         </Box>
-        <Typography variant="body1" color="text.secondary" gutterBottom>
+        <Typography variant="h4" component="h1" gutterBottom sx={{ textAlign: 'center' }}>
+          PhotoBooze Admin
+        </Typography>
+        <Typography variant="body1" color="text.secondary" gutterBottom sx={{ textAlign: 'center' }}>
           Create and manage party photo sessions
         </Typography>
       </Box>
