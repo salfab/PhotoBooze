@@ -155,16 +155,15 @@ export default function TvPage() {
       })
       .on('broadcast', { event: 'request-state' }, () => {
         console.log('State request received from remote');
-        // State will be broadcast by the broadcastCurrentState effect
-        // Trigger a re-broadcast by forcing state update
-        setCurrentIndex(prev => prev);
+        // Broadcast current state immediately
+        broadcastCurrentState();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [partyId, supabase]);
+  }, [partyId, supabase, broadcastCurrentState]);
 
   const getTvImageUrl = useCallback((photo: Photo): string => {
     const { data } = supabase.storage
