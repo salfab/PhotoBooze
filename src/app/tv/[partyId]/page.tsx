@@ -13,7 +13,7 @@ interface PhotoWithUploader extends Photo {
 }
 
 const STORAGE_BUCKET = 'photobooze-images';
-const MAX_VISIBLE_PHOTOS = 15;
+const MAX_VISIBLE_PHOTOS = 20;
 
 // Generate consistent random values based on photo ID
 // Uses viewport dimensions for full-screen scatter
@@ -230,19 +230,24 @@ export default function TvPage() {
         // Broadcast current state immediately
         broadcastCurrentState();
       })
-      .on('broadcast', { event: 'show-qr' }, () => {
-        console.log('Show QR command received from remote');
-        // Clear any existing timer
-        if (qrTimerRef.current) {
-          clearTimeout(qrTimerRef.current);
-        }
-        // Show QR code
-        setShowQR(true);
-        // Hide after 60 seconds
-        qrTimerRef.current = setTimeout(() => {
-          setShowQR(false);
-          qrTimerRef.current = null;
-        }, 60000);
+      .on('broadcast', { event: 'toggle-qr' }, () => {
+        console.log('Toggle QR command received from remote');
+        setShowQR(prev => {
+          const newState = !prev;
+          // Clear any existing timer
+          if (qrTimerRef.current) {
+            clearTimeout(qrTimerRef.current);
+            qrTimerRef.current = null;
+          }
+          // Set timer if showing
+          if (newState) {
+            qrTimerRef.current = setTimeout(() => {
+              setShowQR(false);
+              qrTimerRef.current = null;
+            }, 60000);
+          }
+          return newState;
+        });
       })
       .subscribe();
 

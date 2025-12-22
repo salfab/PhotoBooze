@@ -80,6 +80,7 @@ export default function UploadPage() {
   const [tvState, setTvState] = useState<TVState | null>(null);
   const [partyName, setPartyName] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [showingQR, setShowingQR] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -261,11 +262,22 @@ export default function UploadPage() {
     
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        console.log('Sending show QR command');
+        console.log('Sending toggle QR command');
         channel.send({
           type: 'broadcast',
-          event: 'show-qr',
+          event: 'toggle-qr',
           payload: {},
+        });
+        // Toggle local state
+        setShowingQR(prev => {
+          const newState = !prev;
+          // Auto-hide after 60 seconds if showing
+          if (newState) {
+            setTimeout(() => {
+              setShowingQR(false);
+            }, 60000);
+          }
+          return newState;
         });
         // Unsubscribe after a longer delay to ensure delivery
         setTimeout(() => {
@@ -758,7 +770,7 @@ export default function UploadPage() {
                 fontWeight: 500,
               }}
             >
-              Tap to show on TV
+              {showingQR ? 'Tap to hide from TV' : 'Tap to show on TV'}
             </Typography>
           </Box>
         </>
