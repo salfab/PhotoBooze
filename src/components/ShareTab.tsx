@@ -70,48 +70,92 @@ export default function ShareTab({ partyId }: ShareTabProps) {
 
   return (
     <Box className={styles.remoteContainer}>
-      <Typography variant="h6" sx={{ color: '#1a1a1a' }} gutterBottom>
-        Share Party
-      </Typography>
       {qrCodeUrl ? (
-        <>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
-            Scan this QR code to join the party
-          </Typography>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          gap: 2,
+          width: '100%',
+        }}>
+          {/* QR Code Card */}
           <Box 
             onClick={sendShowQRCommand}
             sx={{ 
               backgroundColor: 'white', 
-              padding: '1rem', 
-              borderRadius: '16px',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              padding: '1.5rem', 
+              borderRadius: '20px',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
+              transition: 'all 0.3s ease',
+              maxWidth: '350px',
+              width: '100%',
+              border: '2px solid rgba(102, 126, 234, 0.1)',
               '&:hover': {
-                boxShadow: '0 6px 16px rgba(0, 0, 0, 0.15)',
-                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 24px rgba(102, 126, 234, 0.2)',
+                transform: 'translateY(-4px)',
+                borderColor: 'rgba(102, 126, 234, 0.3)',
               },
               '&:active': {
-                transform: 'translateY(0)',
+                transform: 'translateY(-2px)',
               },
             }}
           >
-            <img src={qrCodeUrl} alt="Party QR Code" className={styles.qrCodeImage} />
             <Typography 
-              variant="body2" 
+              variant="h6" 
               sx={{ 
-                mt: 1.5,
+                color: '#1a202c',
+                fontWeight: 600,
                 textAlign: 'center',
-                color: 'primary.main',
-                fontWeight: 500,
+                mb: 2,
               }}
             >
-              Tap to show on TV
+              Scan and Join
             </Typography>
+            <img 
+              src={qrCodeUrl} 
+              alt="Party QR Code" 
+              style={{ 
+                width: '100%', 
+                height: 'auto',
+                display: 'block',
+                borderRadius: '12px',
+              }} 
+            />
+            <Box sx={{
+              mt: 2,
+              p: 1.5,
+              background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%)',
+              borderRadius: '12px',
+              textAlign: 'center',
+            }}>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  color: '#667eea',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                }}
+              >
+                Tap to display on TV
+              </Typography>
+            </Box>
           </Box>
-        </>
+        </Box>
       ) : (
-        <CircularProgress />
+        <Box sx={{ 
+          textAlign: 'center',
+          py: 4,
+          background: 'white',
+          borderRadius: '20px',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)',
+          width: '100%',
+        }}>
+          <CircularProgress sx={{ color: '#667eea' }} />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Generating QR code...
+          </Typography>
+        </Box>
       )}
     </Box>
   );

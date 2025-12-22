@@ -125,22 +125,40 @@ export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
   if (!tvState) {
     return (
       <Box className={styles.remoteContainer}>
-        <Typography variant="h6" sx={{ color: '#1a1a1a' }} gutterBottom>
-          TV Remote Control
-        </Typography>
-        <Box className={styles.remoteWaiting}>
-          <CircularProgress size={40} />
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+        <Box sx={{ 
+          textAlign: 'center', 
+          py: 4,
+          px: 2,
+          background: 'white',
+          borderRadius: '20px',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)',
+        }}>
+          <CircularProgress size={48} sx={{ color: '#667eea', mb: 2 }} />
+          <Typography variant="h6" sx={{ color: '#1a202c', fontWeight: 600, mb: 1 }}>
             Connecting to TV...
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             Make sure the TV view is open
           </Typography>
           <Button
-            variant="outlined"
+            variant="contained"
             startIcon={<TvIcon />}
             onClick={openTvView}
-            sx={{ mt: 2 }}
+            sx={{ 
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              px: 3,
+              py: 1.5,
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 600,
+              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #5568d3 0%, #66418c 100%)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)',
+              },
+            }}
           >
             Open TV Display
           </Button>
@@ -150,18 +168,15 @@ export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
   }
 
   return (
-    <Box className={styles.remoteContainer}>
-      <Typography variant="h6" sx={{ color: '#1a1a1a' }} gutterBottom>
-        TV Remote Control
-      </Typography>
-      
-      <Box className={styles.remoteStatus} sx={{ maxWidth: '300px', width: '100%', overflow: 'hidden' }}>
-        <Typography variant="body1" sx={{ color: '#1a1a1a' }}>
+    <Box className={styles.remoteContainer} sx={{ alignItems: 'center', width: '100%' }}>
+      {/* Current Photo Status */}
+      <Box className={styles.remoteStatus} sx={{ width: '100%', maxWidth: '340px' }}>
+        <Typography variant="h6" sx={{ color: '#667eea', fontWeight: 700, mb: 0.5 }}>
           📷 Photo {tvState.currentIndex + 1} of {tvState.totalPhotos}
         </Typography>
         {tvState.uploaderName && (
-          <Typography variant="body2" sx={{ color: '#1a1a1a' }}>
-            by {tvState.uploaderName}
+          <Typography variant="body2" sx={{ color: 'rgba(17,24,39,0.7)', fontSize: '0.9rem' }}>
+            by <strong>{tvState.uploaderName}</strong>
           </Typography>
         )}
         {tvState.comment && (
@@ -169,7 +184,7 @@ export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
             variant="body2" 
             onClick={() => setCommentModalOpen(true)}
             sx={{ 
-              color: '#1a1a1a', 
+              color: 'rgba(17,24,39,0.8)', 
               fontStyle: 'italic',
               cursor: 'pointer',
               display: 'block',
@@ -177,12 +192,18 @@ export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              mt: 1,
+              padding: '8px 12px',
+              background: 'rgba(102, 126, 234, 0.06)',
+              borderRadius: '8px',
+              transition: 'all 0.2s ease',
               '&:hover': {
-                textDecoration: 'underline',
+                background: 'rgba(102, 126, 234, 0.12)',
+                color: '#667eea',
               },
             }}
           >
-            {tvState.comment}
+            💬 {tvState.comment}
           </Typography>
         )}
       </Box>
@@ -193,8 +214,14 @@ export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
         onClose={() => setCommentModalOpen(false)}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            background: 'linear-gradient(135deg, #ffffff 0%, #f4f6ff 100%)',
+            boxShadow: '0 6px 24px rgba(16,24,40,0.08)',
+          },
+        }}
       >
-        <DialogTitle>
+        <DialogTitle sx={{ color: '#3b3f72', fontWeight: 600 }}>
           💬 Comment
         </DialogTitle>
         <DialogContent>
@@ -206,6 +233,7 @@ export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
               overflowY: 'auto',
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
+              color: 'rgba(17,24,39,0.9)',
             }}
           >
             {tvState.comment}
@@ -213,7 +241,7 @@ export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
         </DialogContent>
       </Dialog>
 
-      <Box className={styles.remoteControls}>
+      <Box className={styles.remoteControls} sx={{ width: '100%', maxWidth: '340px' }}>
         <Fab
           color="primary"
           size="large"
@@ -236,18 +264,21 @@ export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
       </Box>
 
       {/* Fullscreen toggle switch */}
-      <FormControlLabel
-        control={
-          <Switch
-            checked={tvState.isFullscreen || false}
-            onChange={sendToggleFullscreen}
-            disabled={!tvState.photoUrl}
-            color="secondary"
-          />
-        }
-        label="Fullscreen on TV"
-        className={styles.fullscreenSwitch}
-      />
+      <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', maxWidth: '340px' }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={tvState.isFullscreen || false}
+              onChange={sendToggleFullscreen}
+              disabled={!tvState.photoUrl}
+              color="secondary"
+            />
+          }
+          label="Fullscreen on TV"
+          className={styles.fullscreenSwitch}
+          sx={{ width: '100%', m: 0 }}
+        />
+      </Box>
     </Box>
   );
 }

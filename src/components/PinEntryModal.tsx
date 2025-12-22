@@ -139,9 +139,10 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
       fullWidth
       PaperProps={{
         sx: {
-          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(102, 126, 234, 0.2)',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f4f6ff 100%)',
+          backdropFilter: 'blur(6px)',
+          border: '1px solid rgba(102, 126, 234, 0.12)',
+          boxShadow: '0 6px 24px rgba(16,24,40,0.08)'
         }
       }}
     >
@@ -149,7 +150,7 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
         display: 'flex', 
         alignItems: 'center', 
         gap: 1.5,
-        color: '#667eea',
+        color: '#3b3f72',
         pb: 1
       }}>
         <LockIcon />
@@ -159,8 +160,8 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
       <DialogContent>
         <Box sx={{ pt: 1 }}>
           <Box sx={{ 
-            color: 'rgba(255, 255, 255, 0.7)', 
-            fontSize: '0.875rem',
+            color: 'rgba(17,24,39,0.8)', 
+            fontSize: '0.9rem',
             mb: 3,
             textAlign: 'center'
           }}>
@@ -197,23 +198,23 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
                       maxLength: 1,
                       style: { 
                         textAlign: 'center',
-                        fontSize: '1.5rem',
+                        fontSize: '1.4rem',
                         fontWeight: 600,
-                        padding: '12px 0',
+                        padding: '10px 0',
                       },
                       type: 'text',
                       inputMode: 'numeric',
                       pattern: '[0-9]*'
                     }}
                     sx={{
-                      width: '48px',
+                      width: '50px',
                       '& .MuiOutlinedInput-root': {
-                        background: 'rgba(102, 126, 234, 0.05)',
+                        background: 'linear-gradient(180deg, rgba(102,126,234,0.03), rgba(255,255,255,0.6))',
                         '& fieldset': {
-                          borderColor: 'rgba(102, 126, 234, 0.3)',
+                          borderColor: 'rgba(16,24,40,0.08)',
                         },
                         '&:hover fieldset': {
-                          borderColor: 'rgba(102, 126, 234, 0.5)',
+                          borderColor: 'rgba(16,24,40,0.18)',
                         },
                         '&.Mui-focused fieldset': {
                           borderColor: '#667eea',
@@ -221,7 +222,7 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
                         },
                       },
                       '& input': {
-                        color: 'white',
+                        color: '#0f172a',
                         WebkitTextSecurity: 'disc',
                       }
                     }}
@@ -251,23 +252,23 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
                       maxLength: 1,
                       style: { 
                         textAlign: 'center',
-                        fontSize: '1.5rem',
+                        fontSize: '1.4rem',
                         fontWeight: 600,
-                        padding: '12px 0',
+                        padding: '10px 0',
                       },
                       type: 'text',
                       inputMode: 'numeric',
                       pattern: '[0-9]*'
                     }}
                     sx={{
-                      width: '48px',
+                      width: '50px',
                       '& .MuiOutlinedInput-root': {
-                        background: 'rgba(102, 126, 234, 0.05)',
+                        background: 'linear-gradient(180deg, rgba(102,126,234,0.03), rgba(255,255,255,0.6))',
                         '& fieldset': {
-                          borderColor: 'rgba(102, 126, 234, 0.3)',
+                          borderColor: 'rgba(16,24,40,0.08)',
                         },
                         '&:hover fieldset': {
-                          borderColor: 'rgba(102, 126, 234, 0.5)',
+                          borderColor: 'rgba(16,24,40,0.18)',
                         },
                         '&.Mui-focused fieldset': {
                           borderColor: '#667eea',
@@ -275,7 +276,7 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
                         },
                       },
                       '& input': {
-                        color: 'white',
+                        color: '#0f172a',
                         WebkitTextSecurity: mode === 'set' ? 'none' : 'disc',
                       }
                     }}
@@ -287,14 +288,14 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
 
           {error && (
             <Box sx={{ 
-              color: '#ff6b6b', 
-              fontSize: '0.875rem',
+              color: '#b91c1c', 
+              fontSize: '0.9rem',
               mt: 2,
               textAlign: 'center',
               p: 1.5,
-              background: 'rgba(255, 107, 107, 0.1)',
+              background: 'rgba(249, 115, 115, 0.08)',
               borderRadius: 1,
-              border: '1px solid rgba(255, 107, 107, 0.3)'
+              border: '1px solid rgba(239,68,68,0.15)'
             }}>
               {error}
             </Box>
@@ -306,9 +307,9 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
         <Button 
           onClick={onClose}
           sx={{ 
-            color: 'rgba(255, 255, 255, 0.7)',
+            color: 'rgba(17,24,39,0.7)',
             '&:hover': {
-              background: 'rgba(255, 255, 255, 0.05)',
+              background: 'rgba(17,24,39,0.04)',
             }
           }}
         >
@@ -319,13 +320,13 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
           disabled={!isComplete}
           variant="contained"
           sx={{ 
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            background: 'linear-gradient(135deg, #667eea 0%, #8b5cf6 100%)',
             '&:hover': {
-              background: 'linear-gradient(135deg, #5568d3 0%, #66418c 100%)',
+              background: 'linear-gradient(135deg, #5568d3 0%, #7c3aed 100%)',
             },
             '&.Mui-disabled': {
-              background: 'rgba(102, 126, 234, 0.2)',
-              color: 'rgba(255, 255, 255, 0.3)',
+              background: 'rgba(102, 126, 234, 0.18)',
+              color: 'rgba(17,24,39,0.3)',
             }
           }}
         >

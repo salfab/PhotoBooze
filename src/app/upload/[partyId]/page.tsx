@@ -162,6 +162,32 @@ export default function UploadPage() {
             window.history.pushState(null, '', `#${tabs[newValue]}`);
           }}
           showLabels
+          sx={{
+            background: 'transparent',
+            height: '72px',
+            '& .MuiBottomNavigationAction-root': {
+              color: 'rgba(255, 255, 255, 0.7)',
+              minWidth: '80px',
+              padding: '8px 12px 10px',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                color: 'rgba(255, 255, 255, 0.9)',
+                transform: 'translateY(-2px)',
+              },
+              '&.Mui-selected': {
+                color: '#ffffff',
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                borderRadius: '16px',
+                fontWeight: 600,
+                '& .MuiBottomNavigationAction-label': {
+                  fontSize: '0.75rem',
+                },
+              },
+              '& .MuiSvgIcon-root': {
+                fontSize: '1.75rem',
+              },
+            },
+          }}
         >
           <BottomNavigationAction 
             label="Camera" 

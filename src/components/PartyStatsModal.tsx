@@ -72,9 +72,10 @@ export default function PartyStatsModal({ open, onClose, partyId, partyName }: P
       PaperProps={{
         sx: {
           borderRadius: '20px',
-          background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
-          color: 'white',
+          background: 'linear-gradient(180deg, #ffffff 0%, #f4f6ff 100%)',
+          color: '#1a202c',
           overflow: 'hidden',
+          boxShadow: '0 6px 24px rgba(16,24,40,0.08)',
         },
       }}
     >
@@ -83,16 +84,16 @@ export default function PartyStatsModal({ open, onClose, partyId, partyName }: P
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(135deg, #667eea 0%, #8b5cf6 100%)',
           py: 2,
         }}
       >
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
             🏆 Party Awards
           </Typography>
           {partyName && (
-            <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
+            <Typography variant="body2" sx={{ color: 'white',opacity: 0.9, mt: 0.5 }}>
               {partyName}
             </Typography>
           )}
@@ -124,30 +125,30 @@ export default function PartyStatsModal({ open, onClose, partyId, partyName }: P
                 justifyContent: 'space-around',
                 py: 2,
                 px: 3,
-                background: 'rgba(255,255,255,0.05)',
+                background: 'rgba(102,126,234,0.04)',
               }}
             >
               <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#f093fb' }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#d946ef' }}>
                   {stats.summary.totalPhotos}
                 </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.7 }}>Photos</Typography>
+                <Typography variant="caption" sx={{ opacity: 0.7, color: 'rgba(17,24,39,0.7)' }}>Photos</Typography>
               </Box>
               <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#4facfe' }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#0ea5e9' }}>
                   {stats.summary.totalGuests}
                 </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.7 }}>Guests</Typography>
+                <Typography variant="caption" sx={{ opacity: 0.7, color: 'rgba(17,24,39,0.7)' }}>Guests</Typography>
               </Box>
               <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#43e97b' }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#10b981' }}>
                   {stats.summary.totalComments}
                 </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.7 }}>Comments</Typography>
+                <Typography variant="caption" sx={{ opacity: 0.7, color: 'rgba(17,24,39,0.7)' }}>Comments</Typography>
               </Box>
             </Box>
 
-            <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+            <Divider sx={{ borderColor: 'rgba(16,24,40,0.08)' }} />
 
             {/* Trophies */}
             <Box sx={{ p: 2 }}>
@@ -168,11 +169,11 @@ export default function PartyStatsModal({ open, onClose, partyId, partyName }: P
                         mb: 1,
                         borderRadius: '12px',
                         background: trophy.winner
-                          ? 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)'
-                          : 'rgba(255,255,255,0.02)',
+                          ? 'linear-gradient(135deg, rgba(102,126,234,0.08) 0%, rgba(139,92,246,0.06) 100%)'
+                          : 'rgba(16,24,40,0.02)',
                         border: trophy.winner
-                          ? '1px solid rgba(255,255,255,0.15)'
-                          : '1px solid rgba(255,255,255,0.05)',
+                          ? '1px solid rgba(102,126,234,0.2)'
+                          : '1px solid rgba(16,24,40,0.06)',
                         opacity: trophy.winner ? 1 : 0.5,
                       }}
                     >
@@ -184,7 +185,7 @@ export default function PartyStatsModal({ open, onClose, partyId, partyName }: P
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          background: 'rgba(255,255,255,0.1)',
+                          background: 'rgba(102,126,234,0.1)',
                           borderRadius: '12px',
                           flexShrink: 0,
                         }}
@@ -194,13 +195,13 @@ export default function PartyStatsModal({ open, onClose, partyId, partyName }: P
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography
                           variant="subtitle1"
-                          sx={{ fontWeight: 600, lineHeight: 1.2 }}
+                          sx={{ fontWeight: 600, lineHeight: 1.2, color: '#1a202c' }}
                         >
                           {trophy.title}
                         </Typography>
                         <Typography
                           variant="body2"
-                          sx={{ opacity: 0.6, fontSize: '0.75rem' }}
+                          sx={{ opacity: 0.6, fontSize: '0.75rem', color: 'rgba(17,24,39,0.7)' }}
                         >
                           {trophy.description}
                         </Typography>
@@ -212,7 +213,7 @@ export default function PartyStatsModal({ open, onClose, partyId, partyName }: P
                               variant="body2"
                               sx={{
                                 fontWeight: 600,
-                                color: '#f8e71c',
+                                color: '#ca8a04',
                                 maxWidth: 120,
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
@@ -224,7 +225,7 @@ export default function PartyStatsModal({ open, onClose, partyId, partyName }: P
                             {trophy.value && (
                               <Typography
                                 variant="caption"
-                                sx={{ opacity: 0.6, fontSize: '0.7rem' }}
+                                sx={{ opacity: 0.6, fontSize: '0.7rem', color: 'rgba(17,24,39,0.6)' }}
                               >
                                 {trophy.value}
                               </Typography>
@@ -233,7 +234,7 @@ export default function PartyStatsModal({ open, onClose, partyId, partyName }: P
                         ) : (
                           <Typography
                             variant="body2"
-                            sx={{ opacity: 0.4, fontStyle: 'italic' }}
+                            sx={{ opacity: 0.4, fontStyle: 'italic', color: 'rgba(17,24,39,0.5)' }}
                           >
                             No winner yet
                           </Typography>

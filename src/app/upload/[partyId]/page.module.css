@@ -36,7 +36,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.5rem;
+  gap: 2rem;
   padding: 2rem 1rem;
   flex: 1;
   justify-content: center;
@@ -242,6 +242,11 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  background: linear-gradient(to bottom, #f8f9fa, #ffffff);
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  margin-bottom: 0.5rem;
 }
 
 /* Bottom Navigation */
@@ -251,6 +256,9 @@
   left: 0;
   right: 0;
   z-index: 1000;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border-top: 3px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 -4px 20px rgba(102, 126, 234, 0.3) !important;
 }
 
 /* Remote Control Tab */
@@ -258,10 +266,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   flex: 1;
-  padding: 2rem 1rem;
-  gap: 2rem;
+  padding: 0;
+  gap: 1.5rem;
   text-align: center;
 }
 
@@ -270,20 +278,32 @@
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
-  padding: 1.5rem;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-  border: 2px solid rgba(102, 126, 234, 0.2);
-  border-radius: 16px;
-  min-width: 250px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 1.5rem 2rem;
+  background: white;
+  border: 2px solid rgba(102, 126, 234, 0.15);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 340px;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.12);
+  transition: all 0.3s ease;
+}
+
+.remoteStatus:hover {
+  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.18);
+  transform: translateY(-2px);
 }
 
 .remoteControls {
   display: flex;
-  gap: 3rem;
+  gap: 2.5rem;
   padding: 2rem;
   flex-wrap: wrap;
   justify-content: center;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  max-width: 340px;
 }
 
 .navButton {
@@ -309,17 +329,21 @@
 }
 
 .fullscreenSwitch {
-  margin-top: 1rem;
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-  border: 2px solid rgba(102, 126, 234, 0.2);
-  border-radius: 12px;
-  transition: all 0.2s ease;
+  padding: 1rem 2rem;
+  background: white;
+  border: 2px solid rgba(102, 126, 234, 0.15);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+  width: 100%;
+  max-width: 340px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
 .fullscreenSwitch:hover {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
-  border-color: rgba(102, 126, 234, 0.3);
+  background: rgba(102, 126, 234, 0.02);
+  border-color: rgba(102, 126, 234, 0.25);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.12);
+  transform: translateY(-1px);
 }
 
 .remoteWaiting {
@@ -333,4 +357,28 @@
   display: block;
   width: 300px;
   height: 300px;
+}
+
+/* Section Title Styling */
+.sectionTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+/* Card Container for Sections */
+.cardSection {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+.cardSection:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
 }
