@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { data: party, error } = await supabase
       .from('parties')
-      .select('id, name, status, created_at')
+      .select('id, name, status, created_at, countdown_target')
       .eq('id', partyId)
       .single();
 
@@ -46,6 +46,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       name: party.name,
       status: party.status,
       createdAt: party.created_at,
+      countdownTarget: party.countdown_target,
       photoCount: photoCount ?? 0,
       uploaderCount: uploaderCount ?? 0,
     });
@@ -131,6 +132,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         name: party.name,
         status: party.status,
         createdAt: party.created_at,
+      });
+    }
+
+    // Handle countdown target updates
+    if (body.countdownTarget !== undefined) {
+      const { data: party, error } = await supabase
+        .from('parties')
+        .update({ countdown_target: body.countdownTarget })
+        .eq('id', partyId)
+        .select('id, name, status, created_at, countdown_target')
+        .single();
+
+      if (error || !party) {
+        return NextResponse.json(
+          { error: 'Party not found' },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        id: party.id,
+        name: party.name,
+        status: party.status,
+        createdAt: party.created_at,
+        countdownTarget: party.countdown_target,
       });
     }
 

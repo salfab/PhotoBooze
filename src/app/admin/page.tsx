@@ -17,6 +17,7 @@ import {
   Fab,
   TextField,
   Skeleton,
+  Switch,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -40,6 +41,7 @@ interface Party {
   joinToken?: string;
   photoCount?: number;
   uploaderCount?: number;
+  countdownTarget?: string | null;
 }
 
 export default function AdminPage() {
@@ -171,6 +173,38 @@ export default function AdminPage() {
     }
   }, []);
 
+  const toggleCountdown = useCallback(async (partyId: string, currentTarget: string | null | undefined) => {
+    try {
+      // If currently set, clear it. Otherwise set to next midnight.
+      let countdownTarget: string | null = null;
+      if (!currentTarget) {
+        // Calculate next midnight (start of next day)
+        const now = new Date();
+        const midnight = new Date(now);
+        midnight.setHours(24, 0, 0, 0); // Next midnight
+        countdownTarget = midnight.toISOString();
+      }
+
+      const response = await fetch(`/api/parties/${partyId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ countdownTarget }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to toggle countdown');
+      }
+
+      const updatedParty = await response.json();
+      setParties(prev =>
+        prev.map(p => (p.id === partyId ? { ...p, countdownTarget: updatedParty.countdownTarget } : p))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to toggle countdown');
+    }
+  }, []);
+
   const startEditingName = useCallback((party: Party) => {
     setEditingPartyId(party.id);
     setEditedName(party.name || '');
@@ -226,7 +260,7 @@ export default function AdminPage() {
           />
         </Box>
         <Typography variant="h4" component="h1" gutterBottom sx={{ textAlign: 'center' }}>
-          PhotoBooze Admin
+          The Lobby
         </Typography>
         <Typography variant="body1" color="text.secondary" gutterBottom sx={{ textAlign: 'center' }}>
           Create and manage party photo sessions
@@ -310,6 +344,17 @@ export default function AdminPage() {
                 <Typography variant="body2">
                   👥 {party.uploaderCount ?? 0} guests
                 </Typography>
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                <Typography variant="body2">
+                  🎆 New Year&apos;s Eve mode
+                </Typography>
+                <Switch
+                  checked={!!party.countdownTarget}
+                  onChange={() => toggleCountdown(party.id, party.countdownTarget)}
+                  size="small"
+                />
               </Box>
 
               {qrDataUrls[party.id] ? (

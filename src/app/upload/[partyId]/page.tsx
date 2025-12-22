@@ -19,6 +19,9 @@ import {
   Paper,
   Switch,
   FormControlLabel,
+  Dialog,
+  DialogContent,
+  DialogTitle,
 } from '@mui/material';
 import {
   CameraAlt as CameraIcon,
@@ -81,6 +84,7 @@ export default function UploadPage() {
   const [partyName, setPartyName] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [showingQR, setShowingQR] = useState(false);
+  const [commentModalOpen, setCommentModalOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -654,13 +658,13 @@ export default function UploadPage() {
   // Render Remote Tab content
   const renderRemoteTab = () => (
     <Box className={styles.remoteContainer}>
-      <Typography variant="h6" gutterBottom>
+      <Typography variant="h6" sx={{ color: '#1a1a1a' }} gutterBottom>
         TV Remote Control
       </Typography>
       
       {tvState ? (
         <>
-          <Box className={styles.remoteStatus}>
+          <Box className={styles.remoteStatus} sx={{ maxWidth: '300px', width: '100%', overflow: 'hidden' }}>
             <Typography variant="body1" sx={{ color: '#1a1a1a' }}>
               📷 Photo {tvState.currentIndex + 1} of {tvState.totalPhotos}
             </Typography>
@@ -670,11 +674,53 @@ export default function UploadPage() {
               </Typography>
             )}
             {tvState.comment && (
-              <Typography variant="body2" sx={{ color: '#1a1a1a', fontStyle: 'italic' }}>
-                &ldquo;{tvState.comment}&rdquo;
+              <Typography 
+                variant="body2" 
+                onClick={() => setCommentModalOpen(true)}
+                sx={{ 
+                  color: '#1a1a1a', 
+                  fontStyle: 'italic',
+                  cursor: 'pointer',
+                  display: 'block',
+                  width: '100%',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  '&:hover': {
+                    textDecoration: 'underline',
+                  },
+                }}
+              >
+                {tvState.comment}
               </Typography>
             )}
           </Box>
+
+          {/* Comment Modal */}
+          <Dialog 
+            open={commentModalOpen} 
+            onClose={() => setCommentModalOpen(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle>
+              💬 Comment
+            </DialogTitle>
+            <DialogContent>
+              <Typography 
+                sx={{ 
+                  fontStyle: 'italic',
+                  lineHeight: 1.6,
+                  maxHeight: '60vh',
+                  overflowY: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {tvState.comment}
+              </Typography>
+            </DialogContent>
+          </Dialog>
 
           <Box className={styles.remoteControls}>
             <Fab
@@ -736,7 +782,7 @@ export default function UploadPage() {
 
   const renderQRTab = () => (
     <Box className={styles.remoteContainer}>
-      <Typography variant="h6" gutterBottom>Share Party</Typography>
+      <Typography variant="h6" sx={{ color: '#1a1a1a' }} gutterBottom>Share Party</Typography>
       {qrCodeUrl ? (
         <>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
@@ -770,7 +816,7 @@ export default function UploadPage() {
                 fontWeight: 500,
               }}
             >
-              {showingQR ? 'Tap to hide from TV' : 'Tap to show on TV'}
+              Tap to show on TV
             </Typography>
           </Box>
         </>

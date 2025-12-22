@@ -6,6 +6,9 @@ import { Box, Typography, CircularProgress } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import type { Photo, Uploader } from '@/types/database';
+
+type Guest = Pick<Uploader, 'id' | 'display_name' | 'created_at'>;
+import Countdown from '@/components/Countdown';
 import styles from './page.module.css';
 
 interface PhotoWithUploader extends Photo {
@@ -13,7 +16,7 @@ interface PhotoWithUploader extends Photo {
 }
 
 const STORAGE_BUCKET = 'photobooze-images';
-const MAX_VISIBLE_PHOTOS = 20;
+const MAX_VISIBLE_PHOTOS = 15;
 
 // Generate consistent random values based on photo ID
 // Uses viewport dimensions for full-screen scatter
@@ -24,19 +27,27 @@ function getScatterProps(photoId: string, index: number, viewportWidth: number, 
     hash |= 0;
   }
   
+  // Better random distribution using multiple hash variations
   const random = (seed: number) => {
-    const x = Math.sin(hash + seed) * 10000;
+    const x = Math.sin((hash * seed) + seed * 12345) * 10000;
     return x - Math.floor(x);
   };
+
+  // Also use the index to add more variation
+  const indexVariation = Math.sin(index * 7919) * 0.5; // Prime number for better distribution
 
   // Scatter across ~70% of viewport width and ~50% of viewport height
   const maxX = viewportWidth * 0.35;
   const maxY = viewportHeight * 0.25;
 
+  // Calculate raw position and add index-based variation
+  const rawX = (random(2) - 0.5 + indexVariation * 0.3) * maxX * 2;
+  const rawY = (random(3) - 0.5) * maxY * 2;
+
   return {
     rotate: (random(1) - 0.5) * 30, // -15 to +15 degrees
-    x: (random(2) - 0.5) * maxX * 2, // -35vw to +35vw equivalent
-    y: (random(3) - 0.5) * maxY * 2, // -25vh to +25vh equivalent
+    x: Math.max(-maxX, Math.min(maxX, rawX)), // Clamp to bounds
+    y: rawY,
     zIndex: index,
   };
 }
@@ -53,6 +64,8 @@ export default function TvPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [countdownTarget, setCountdownTarget] = useState<string | null>(null);
+  const [guests, setGuests] = useState<Guest[]>([]);
   
   const supabase = useMemo(() => createClient(), []);
   const stateChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -96,6 +109,82 @@ export default function TvPage() {
     photosRef.current = photos;
   }, [photos]);
 
+  // Load guests and subscribe to new arrivals
+  useEffect(() => {
+    async function loadGuests() {
+      const { data } = await supabase
+        .from('uploaders')
+        .select('id, display_name, created_at')
+        .eq('party_id', partyId)
+        .order('created_at', { ascending: true });
+      
+      if (data) {
+        setGuests(data);
+      }
+    }
+
+    loadGuests();
+
+    // Subscribe to new guests joining
+    const channel = supabase
+      .channel(`guests:${partyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'uploaders',
+          filter: `party_id=eq.${partyId}`,
+        },
+        (payload) => {
+          const newGuest = payload.new as Guest;
+          console.log('👋 New guest joined:', newGuest.display_name);
+          setGuests(prev => [...prev, newGuest]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [partyId, supabase]);
+
+  // Load party data and log countdown info
+  useEffect(() => {
+    async function loadPartyData() {
+      try {
+        const response = await fetch(`/api/parties/${partyId}`);
+        if (response.ok) {
+          const party = await response.json();          
+          setCountdownTarget(party.countdownTarget);
+          
+          if (party.countdownTarget) {
+            const target = new Date(party.countdownTarget);
+            const now = new Date();
+            const diff = target.getTime() - now.getTime();
+            
+            if (diff > 0) {
+              const hours = Math.floor(diff / (1000 * 60 * 60));
+              const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+              const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+              
+              console.log(`⏱️ Countdown target: ${target.toLocaleString()}`);
+              console.log(`⏱️ Time remaining: ${hours}h ${minutes}m ${seconds}s`);
+            } else {
+              console.log(`⏱️ Countdown has already elapsed at ${target.toLocaleString()}`);
+            }
+          } else {
+            console.log('⏱️ No countdown target set for this party');
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load party data:', err);
+      }
+    }
+
+    loadPartyData();
+  }, [partyId]);
+
   // Load initial photos
   useEffect(() => {
     async function loadPhotos() {
@@ -119,6 +208,54 @@ export default function TvPage() {
 
     loadPhotos();
   }, [partyId, supabase]);
+
+  // Preload an image and return a promise that resolves when loaded
+  const preloadImage = useCallback((url: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+      img.src = url;
+    });
+  }, []);
+
+  // Queue system for photo introductions (minimum 10 seconds between each)
+  const photoQueueRef = useRef<PhotoWithUploader[]>([]);
+  const isProcessingQueueRef = useRef(false);
+  const lastPhotoAddedTimeRef = useRef<number>(0);
+  const MIN_DISPLAY_TIME = 10000; // 10 seconds minimum between photos
+
+  const processPhotoQueue = useCallback(async () => {
+    if (isProcessingQueueRef.current || photoQueueRef.current.length === 0) {
+      return;
+    }
+
+    isProcessingQueueRef.current = true;
+
+    while (photoQueueRef.current.length > 0) {
+      const timeSinceLastPhoto = Date.now() - lastPhotoAddedTimeRef.current;
+      const waitTime = Math.max(0, MIN_DISPLAY_TIME - timeSinceLastPhoto);
+
+      if (waitTime > 0) {
+        console.log(`⏳ Waiting ${waitTime}ms before showing next photo (${photoQueueRef.current.length} in queue)`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+
+      const nextPhoto = photoQueueRef.current.shift();
+      if (nextPhoto) {
+        console.log(`📸 Adding photo to deck (${photoQueueRef.current.length} remaining in queue)`);
+        lastPhotoAddedTimeRef.current = Date.now();
+        
+        setPhotos(prev => {
+          const updatedPhotos = [...prev, nextPhoto];
+          setCurrentIndex(updatedPhotos.length - 1);
+          return updatedPhotos;
+        });
+      }
+    }
+
+    isProcessingQueueRef.current = false;
+  }, []);
 
   // Subscribe to new photos via Realtime
   useEffect(() => {
@@ -147,11 +284,24 @@ export default function TvPage() {
           }
 
           if (newPhoto) {
-            setPhotos(prev => {
-              const updatedPhotos = [...prev, newPhoto as PhotoWithUploader];
-              setCurrentIndex(updatedPhotos.length - 1);
-              return updatedPhotos;
-            });
+            // Get the image URL and preload it before adding to queue
+            const { data: urlData } = supabase.storage
+              .from(STORAGE_BUCKET)
+              .getPublicUrl(newPhoto.tv_path);
+            
+            try {
+              console.log('Preloading image before queueing...');
+              await preloadImage(urlData.publicUrl);
+              console.log('Image preloaded, adding to queue');
+              
+              // Add to queue instead of directly to state
+              photoQueueRef.current.push(newPhoto as PhotoWithUploader);
+              processPhotoQueue();
+            } catch (err) {
+              console.error('Failed to preload image, adding to queue anyway:', err);
+              photoQueueRef.current.push(newPhoto as PhotoWithUploader);
+              processPhotoQueue();
+            }
           }
         }
       )
@@ -160,7 +310,7 @@ export default function TvPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [partyId, supabase]);
+  }, [partyId, supabase, preloadImage, processPhotoQueue]);
 
   const getTvImageUrl = useCallback((photo: Photo): string => {
     const { data } = supabase.storage
@@ -307,19 +457,118 @@ export default function TvPage() {
   if (photos.length === 0) {
     return (
       <Box className={styles.container}>
-        <Box className={styles.waitingContainer}>
-          <Typography variant="h3" component="h1" gutterBottom sx={{ color: 'white' }}>
-            📷 Waiting for photos...
-          </Typography>
-          <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-            Guests can scan the QR code to start uploading
-          </Typography>
-          <Box className={styles.partyId}>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-              Party ID: {partyId}
+        <Box sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 4,
+        }}>
+          {/* Elegant QR Code Card */}
+          <Box sx={{
+            background: 'white',
+            borderRadius: '24px',
+            padding: '32px',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            maxWidth: '400px',
+          }}>
+            <Typography variant="h4" sx={{ 
+              color: '#333', 
+              fontWeight: 600,
+              mb: 1,
+              textAlign: 'center',
+            }}>
+              📸 Join the Party!
+            </Typography>
+            <Typography variant="body1" sx={{ 
+              color: '#666', 
+              mb: 3,
+              textAlign: 'center',
+            }}>
+              Scan to start sharing photos
+            </Typography>
+            {qrCodeUrl && (
+              <Box sx={{
+                background: '#f8f8f8',
+                borderRadius: '16px',
+                padding: '16px',
+                mb: 2,
+              }}>
+                <img 
+                  src={qrCodeUrl} 
+                  alt="Scan to join" 
+                  style={{ 
+                    width: 250, 
+                    height: 250, 
+                    display: 'block',
+                    borderRadius: '8px',
+                  }} 
+                />
+              </Box>
+            )}
+            <Typography variant="caption" sx={{ color: '#999' }}>
+              Photos will appear here automatically
             </Typography>
           </Box>
+
+          {/* Guest List */}
+          {guests.length > 0 && (
+            <Box sx={{
+              background: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: 'blur(10px)',
+              borderRadius: '16px',
+              padding: '20px 32px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 1.5,
+            }}>
+              <Typography variant="body2" sx={{ 
+                color: 'rgba(255, 255, 255, 0.7)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                fontSize: '0.75rem',
+              }}>
+                Guests at the party
+              </Typography>
+              <Box sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 1,
+                justifyContent: 'center',
+                maxWidth: '500px',
+              }}>
+                <AnimatePresence>
+                  {guests.map((guest) => (
+                    <motion.div
+                      key={guest.id}
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                    >
+                      <Box
+                        sx={{
+                          background: 'rgba(255, 255, 255, 0.15)',
+                          borderRadius: '20px',
+                          padding: '6px 14px',
+                          color: 'white',
+                          fontSize: '0.9rem',
+                        }}
+                      >
+                        {guest.display_name || 'Guest'}
+                      </Box>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </Box>
+            </Box>
+          )}
         </Box>
+
+        {/* Countdown overlay */}
+        <Countdown countdownTarget={countdownTarget} />
       </Box>
     );
   }
@@ -382,7 +631,7 @@ export default function TvPage() {
                     </span>
                     {photo.comment && (
                       <span className={styles.polaroidComment}>
-                        "{photo.comment}"
+                        {photo.comment}
                       </span>
                     )}
                   </div>
@@ -419,7 +668,7 @@ export default function TvPage() {
                 </span>
                 {photos[currentIndex].comment && (
                   <span className={styles.fullscreenComment}>
-                    "{photos[currentIndex].comment}"
+                    {photos[currentIndex].comment}
                   </span>
                 )}
               </div>
@@ -439,6 +688,9 @@ export default function TvPage() {
           </Box>
         </Box>
       )}
+
+      {/* Countdown overlay */}
+      <Countdown countdownTarget={countdownTarget} />
     </Box>
   );
 }
