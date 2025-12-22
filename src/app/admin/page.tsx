@@ -16,6 +16,7 @@ import {
   Tooltip,
   Fab,
   TextField,
+  Skeleton,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -44,6 +45,7 @@ interface Party {
 export default function AdminPage() {
   const [parties, setParties] = useState<Party[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isLoadingParties, setIsLoadingParties] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
   const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
@@ -51,6 +53,7 @@ export default function AdminPage() {
 
   const loadParties = useCallback(async () => {
     try {
+      setIsLoadingParties(true);
       const response = await fetch('/api/parties');
       
       if (!response.ok) {
@@ -79,6 +82,8 @@ export default function AdminPage() {
       setQrDataUrls(qrCodes);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load parties');
+    } finally {
+      setIsLoadingParties(false);
     }
   }, []);
 
@@ -403,13 +408,33 @@ export default function AdminPage() {
           </Card>
         ))}
 
-        {parties.length === 0 && (
+        {isLoadingParties ? (
+          // Skeleton loading state
+          Array.from({ length: 2 }).map((_, index) => (
+            <Card key={index} className={styles.partyCard}>
+              <CardContent>
+                <Skeleton variant="text" width="60%" height={32} />
+                <Skeleton variant="text" width="40%" height={24} sx={{ mt: 1 }} />
+                <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                  <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 2 }} />
+                  <Skeleton variant="rectangular" width={100} height={32} sx={{ borderRadius: 2 }} />
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                  <Skeleton variant="circular" width={40} height={40} />
+                  <Skeleton variant="circular" width={40} height={40} />
+                  <Skeleton variant="circular" width={40} height={40} />
+                  <Skeleton variant="circular" width={40} height={40} />
+                </Box>
+              </CardContent>
+            </Card>
+          ))
+        ) : parties.length === 0 ? (
           <Box className={styles.emptyState}>
             <Typography variant="body1" color="text.secondary">
               No parties yet. Create one to get started!
             </Typography>
           </Box>
-        )}
+        ) : null}
       </Stack>
 
       <Fab
