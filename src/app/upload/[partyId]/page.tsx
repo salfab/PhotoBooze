@@ -267,6 +267,7 @@ export default function UploadPage() {
           event: 'show-qr',
           payload: {},
         });
+        // Unsubscribe after a longer delay to ensure delivery
         setTimeout(() => {
           supabase.removeChannel(channel);
         }, 500);
