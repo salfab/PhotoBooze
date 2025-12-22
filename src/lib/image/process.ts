@@ -8,8 +8,9 @@
 const TV_MAX_WIDTH = 1920;
 const TV_MAX_HEIGHT = 1080;
 const TV_QUALITY = 0.8;
-const JPEG_QUALITY = 0.85;
-const ORIGINAL_MAX_SIZE = 2048; // Max dimension for original to stay under 4.5MB total
+const JPEG_QUALITY = 0.95;
+const ORIGINAL_MAX_SIZE = 4096; // Max dimension for original (4K)
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB limit for Vercel
 
 /**
  * Check if a file is a HEIC/HEIF image.
@@ -124,6 +125,20 @@ export async function resizeForTv(blob: Blob): Promise<Blob> {
 }
 
 /**
+ * Check if original image needs resizing (too large in dimensions or file size).
+ */
+async function shouldResizeOriginal(blob: Blob): Promise<boolean> {
+  // Check file size first
+  if (blob.size > MAX_FILE_SIZE) {
+    return true;
+  }
+  
+  // Check dimensions
+  const img = await loadImage(blob);
+  return img.width > ORIGINAL_MAX_SIZE || img.height > ORIGINAL_MAX_SIZE;
+}
+
+/**
  * Process an image file for upload.
  * Returns both original (converted if HEIC) and TV-sized versions.
  */
@@ -165,10 +180,13 @@ export async function processImage(file: File): Promise<ProcessedImage> {
     }
   }
   
-  // Resize original if too large (to stay under Vercel's 4.5MB limit)
-  originalBlob = await resizeImage(originalBlob, ORIGINAL_MAX_SIZE, ORIGINAL_MAX_SIZE, JPEG_QUALITY);
-  originalMime = 'image/jpeg';
-  originalExt = 'jpg';
+  // Only resize/convert original if needed (too large in dimensions or file size)
+  const needsResize = await shouldResizeOriginal(originalBlob);
+  if (needsResize) {
+    originalBlob = await resizeImage(originalBlob, ORIGINAL_MAX_SIZE, ORIGINAL_MAX_SIZE, JPEG_QUALITY);
+    originalMime = 'image/jpeg';
+    originalExt = 'jpg';
+  }
   
   // Create TV-sized version
   const tvBlob = await resizeForTv(originalBlob);

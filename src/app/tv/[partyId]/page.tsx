@@ -16,7 +16,7 @@ interface PhotoWithUploader extends Photo {
 }
 
 const STORAGE_BUCKET = 'photobooze-images';
-const MAX_VISIBLE_PHOTOS = 15;
+const MAX_VISIBLE_PHOTOS = 10;
 
 // Generate consistent random values based on photo ID
 // Uses viewport dimensions for full-screen scatter
@@ -599,9 +599,9 @@ export default function TvPage() {
                 }}
                 animate={{ 
                   opacity: 1, 
-                  scale: isTop ? 1 : 0.95,
-                  x: scatter.x,
-                  y: scatter.y,
+                  scale: isTop ? 1.5 : 1,
+                  x: isTop ? 0 : scatter.x,
+                  y: isTop ? 0 : scatter.y,
                   rotate: scatter.rotate,
                   zIndex: scatter.zIndex,
                 }}
