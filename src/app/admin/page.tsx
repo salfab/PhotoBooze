@@ -29,9 +29,11 @@ import {
   Edit as EditIcon,
   Check as CheckIcon,
   Close as CloseIcon,
+  EmojiEvents as TrophyIcon,
 } from '@mui/icons-material';
 import QRCode from 'qrcode';
 import styles from './page.module.css';
+import PartyStatsModal from '@/components/PartyStatsModal';
 
 interface Party {
   id: string;
@@ -52,6 +54,7 @@ export default function AdminPage() {
   const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
   const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
   const [editedName, setEditedName] = useState<string>('');
+  const [statsModalParty, setStatsModalParty] = useState<Party | null>(null);
 
   const loadParties = useCallback(async () => {
     try {
@@ -344,6 +347,26 @@ export default function AdminPage() {
                 <Typography variant="body2">
                   👥 {party.uploaderCount ?? 0} guests
                 </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<TrophyIcon />}
+                  onClick={() => setStatsModalParty(party)}
+                  sx={{ 
+                    ml: 1,
+                    fontSize: '0.7rem',
+                    py: 0.25,
+                    px: 1,
+                    borderColor: '#667eea',
+                    color: '#667eea',
+                    '&:hover': { 
+                      borderColor: '#764ba2',
+                      backgroundColor: 'rgba(102, 126, 234, 0.08)',
+                    },
+                  }}
+                >
+                  Awards
+                </Button>
               </Box>
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
@@ -492,6 +515,14 @@ export default function AdminPage() {
       >
         {loading ? <CircularProgress size={24} color="inherit" /> : <AddIcon />}
       </Fab>
+
+      {/* Party Stats Modal */}
+      <PartyStatsModal
+        open={!!statsModalParty}
+        onClose={() => setStatsModalParty(null)}
+        partyId={statsModalParty?.id || ''}
+        partyName={statsModalParty?.name || undefined}
+      />
     </Container>
   );
 }

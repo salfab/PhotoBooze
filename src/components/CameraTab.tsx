@@ -441,16 +441,6 @@ export default function CameraTab({
         </Button>
       </Box>
 
-      <Button
-        variant="text"
-        startIcon={<TvIcon />}
-        onClick={openTvView}
-        fullWidth
-        className={styles.tvButton}
-      >
-        Open TV Display
-      </Button>
-
       <input
         ref={cameraInputRef}
         type="file"
