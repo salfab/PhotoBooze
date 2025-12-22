@@ -17,6 +17,7 @@ import {
   Tv as TvIcon,
   NavigateBefore as PrevIcon,
   NavigateNext as NextIcon,
+  EmojiObjects as PromptIcon,
 } from '@mui/icons-material';
 import { createClient } from '@/lib/supabase/client';
 import styles from '@/app/upload/[partyId]/page.module.css';
@@ -113,6 +114,26 @@ export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
         channel.send({
           type: 'broadcast',
           event: 'toggle-fullscreen',
+          payload: {},
+        });
+        setTimeout(() => {
+          supabase.removeChannel(channel);
+        }, 500);
+      }
+    });
+  }, [partyId]);
+
+  // Send show prompt command to TV
+  const sendShowPrompt = useCallback(() => {
+    const supabase = supabaseRef.current;
+    const channel = supabase.channel(`tv-control:${partyId}`);
+    
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('Sending show-prompt command');
+        channel.send({
+          type: 'broadcast',
+          event: 'show-prompt',
           payload: {},
         });
         setTimeout(() => {
@@ -278,6 +299,32 @@ export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
           className={styles.fullscreenSwitch}
           sx={{ width: '100%', m: 0 }}
         />
+      </Box>
+
+      {/* Show Prompt Button */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', maxWidth: '340px' }}>
+        <Button
+          variant="contained"
+          startIcon={<PromptIcon />}
+          onClick={sendShowPrompt}
+          sx={{
+            width: '100%',
+            py: 1.5,
+            borderRadius: '16px',
+            textTransform: 'none',
+            fontWeight: 600,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #5568d3 0%, #66418c 100%)',
+              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+              transform: 'translateY(-2px)',
+            },
+            transition: 'all 0.3s ease',
+          }}
+        >
+          Show Prompt on TV
+        </Button>
       </Box>
     </Box>
   );

@@ -6,10 +6,15 @@ import { Box, Typography, CircularProgress } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import type { Photo, Uploader } from '@/types/database';
+import idlePromptsData from '@/data/idle-prompts.json';
 
 type Guest = Pick<Uploader, 'id' | 'display_name' | 'created_at'>;
 import Countdown from '@/components/Countdown';
 import styles from './page.module.css';
+
+// Constants
+const IDLE_TIME_MINUTES = 15;
+const IDLE_TIME_MS = IDLE_TIME_MINUTES * 60 * 1000;
 
 interface PhotoWithUploader extends Photo {
   uploader: Pick<Uploader, 'display_name'> | null;
@@ -66,11 +71,15 @@ export default function TvPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [countdownTarget, setCountdownTarget] = useState<string | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [showIdlePrompt, setShowIdlePrompt] = useState(false);
+  const [currentPrompt, setCurrentPrompt] = useState<string>('');
+  const [lastPhotoTime, setLastPhotoTime] = useState<number>(Date.now());
   
   const supabase = useMemo(() => createClient(), []);
   const stateChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const photosRef = useRef<PhotoWithUploader[]>([]);
   const qrTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Track viewport size for scatter calculations
   useEffect(() => {
@@ -399,12 +408,26 @@ export default function TvPage() {
           return newState;
         });
       })
+      .on('broadcast', { event: 'show-prompt' }, () => {
+        console.log('Show prompt command received from remote');
+        // Pick a random prompt from both simple and remaster
+        const allPrompts = [
+          ...idlePromptsData.simplePrompts,
+          ...idlePromptsData.remasterPrompts,
+        ];
+        const randomPrompt = allPrompts[Math.floor(Math.random() * allPrompts.length)];
+        setCurrentPrompt(randomPrompt);
+        setShowIdlePrompt(true);
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
       if (qrTimerRef.current) {
         clearTimeout(qrTimerRef.current);
+      }
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
       }
     };
   }, [partyId, supabase, broadcastCurrentState]);
@@ -432,6 +455,37 @@ export default function TvPage() {
   useEffect(() => {
     broadcastCurrentState();
   }, [broadcastCurrentState]);
+
+  // Track when photos change and reset idle timer
+  useEffect(() => {
+    if (photos.length > 0) {
+      setLastPhotoTime(Date.now());
+      setShowIdlePrompt(false); // Hide prompt when new photo arrives
+      
+      // Clear existing timer
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+      
+      // Set new idle timer
+      idleTimerRef.current = setTimeout(() => {
+        // Mix of simple and remaster prompts
+        const allPrompts = [
+          ...idlePromptsData.simplePrompts,
+          ...idlePromptsData.remasterPrompts,
+        ];
+        const randomPrompt = allPrompts[Math.floor(Math.random() * allPrompts.length)];
+        setCurrentPrompt(randomPrompt);
+        setShowIdlePrompt(true);
+      }, IDLE_TIME_MS);
+    }
+    
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+    };
+  }, [photos.length]);
 
   if (loading) {
     return (
@@ -720,6 +774,67 @@ export default function TvPage() {
           </Box>
         </Box>
       )}
+
+      {/* Idle Prompt overlay - tongue at bottom */}
+      <AnimatePresence>
+        {showIdlePrompt && currentPrompt && (
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            transition={{ type: 'spring', stiffness: 100, damping: 15 }}
+            style={{
+              position: 'fixed',
+              bottom: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 1500,
+              pointerEvents: 'none',
+            }}
+          >
+            <motion.div
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '24px 24px 0 0',
+                padding: '2rem 3rem',
+                maxWidth: '80vw',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                border: '3px solid rgba(255, 255, 255, 0.2)',
+                borderBottom: 'none',
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  textAlign: 'center',
+                  display: 'block',
+                  fontSize: '0.85rem',
+                  fontWeight: 500,
+                  letterSpacing: '0.05em',
+                  mb: 1,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {idlePromptsData.tongueTitle}
+              </Typography>
+              <Typography
+                variant="h2"
+                sx={{
+                  color: 'white',
+                  textAlign: 'center',
+                  fontSize: { xs: '1.5rem', sm: '2rem', md: '3rem' },
+                  fontWeight: 700,
+                  lineHeight: 1.3,
+                  textShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                }}
+              >
+                {currentPrompt}
+              </Typography>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Countdown overlay */}
       <Countdown countdownTarget={countdownTarget} />

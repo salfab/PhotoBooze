@@ -36,6 +36,7 @@ export type Database = {
     Tables: {
       parties: {
         Row: {
+          admin_pin_hash: string | null
           closed_at: string | null
           countdown_target: string | null
           created_at: string
@@ -45,6 +46,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          admin_pin_hash?: string | null
           closed_at?: string | null
           countdown_target?: string | null
           created_at?: string
@@ -54,6 +56,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          admin_pin_hash?: string | null
           closed_at?: string | null
           countdown_target?: string | null
           created_at?: string
