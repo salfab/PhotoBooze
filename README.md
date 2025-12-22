@@ -373,6 +373,38 @@ Once connected, Vercel will automatically:
 
 ---
 
+### Database Migrations (Supabase)
+
+Database migrations are **not** automatically applied by Supabase's GitHub integration. A GitHub Action is configured to run migrations when changes are pushed to `supabase/migrations/`.
+
+#### Setup (one-time)
+
+Add these secrets to your GitHub repository (Settings → Secrets and variables → Actions):
+
+| Secret | Description | How to get it |
+|--------|-------------|---------------|
+| `SUPABASE_ACCESS_TOKEN` | Personal access token | [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens) |
+| `SUPABASE_PROJECT_REF` | Project reference ID | Project Settings → General → Reference ID |
+
+#### How it works
+
+- **Automatic**: Migrations run when you push changes to `supabase/migrations/**`
+- **Manual**: Go to Actions → "Deploy Supabase Migrations" → Run workflow
+
+#### Running migrations manually (without GitHub Actions)
+
+```bash
+# Link to your Supabase project (first time only)
+npx supabase link --project-ref YOUR_PROJECT_REF
+
+# Push migrations to production
+npx supabase db push
+```
+
+Or run SQL directly in [Supabase Dashboard → SQL Editor](https://supabase.com/dashboard/project/_/sql).
+
+---
+
 ### Manual Deployment (Alternative)
 
 If you prefer manual control:

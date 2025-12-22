@@ -16,7 +16,7 @@ interface PhotoWithUploader extends Photo {
 }
 
 const STORAGE_BUCKET = 'photobooze-images';
-const MAX_VISIBLE_PHOTOS = 10;
+const MAX_VISIBLE_PHOTOS = 20;
 
 // Generate consistent random values based on photo ID
 // Uses viewport dimensions for full-screen scatter
@@ -581,7 +581,7 @@ export default function TvPage() {
     <Box className={styles.container}>
       {/* Photo stack */}
       <Box className={`${styles.stackContainer} ${isFullscreen ? styles.blurred : ''}`}>
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence>
           {visiblePhotos.map((photo, idx) => {
             const actualIndex = startIdx + idx;
             const isTop = actualIndex === currentIndex;
@@ -593,8 +593,9 @@ export default function TvPage() {
                 className={styles.polaroid}
                 initial={{ 
                   opacity: 0, 
-                  scale: 0.5, 
-                  y: -200,
+                  scale: 0.8, 
+                  y: -300,
+                  x: 0,
                   rotate: scatter.rotate - 30,
                 }}
                 animate={{ 
@@ -603,20 +604,22 @@ export default function TvPage() {
                   x: isTop ? 0 : scatter.x,
                   y: isTop ? 0 : scatter.y,
                   rotate: scatter.rotate,
-                  zIndex: scatter.zIndex,
                 }}
                 exit={{ 
                   opacity: 0,
                   scale: 0.8,
-                  transition: { duration: 0.2 }
+                  transition: { duration: 0.3 }
                 }}
                 transition={{ 
                   type: 'spring',
-                  stiffness: 120,
-                  damping: 14,
-                  mass: 1,
+                  stiffness: 80,
+                  damping: 18,
+                  mass: 0.8,
                 }}
-                style={{ zIndex: scatter.zIndex }}
+                style={{ 
+                  zIndex: isTop ? 1000 : scatter.zIndex,
+                  willChange: 'transform, opacity',
+                }}
               >
                 <div className={styles.polaroidInner}>
                   <img 
