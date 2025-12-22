@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, STORAGE_BUCKET, getPartyFolder } from '@/lib/supabase/server';
+import { hashPin, verifyPin } from '@/lib/auth/tokens';
 
 interface RouteParams {
   params: Promise<{ partyId: string }>;
@@ -158,6 +159,94 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         createdAt: party.created_at,
         countdownTarget: party.countdown_target,
       });
+    }
+
+    // Handle PIN updates (set or remove)
+    if (body.pin !== undefined) {
+      if (body.pin === null) {
+        // Remove PIN - require current PIN for verification
+        if (!body.currentPin) {
+          return NextResponse.json(
+            { error: 'Current PIN required to remove PIN', code: 'MISSING_CURRENT_PIN' },
+            { status: 422 }
+          );
+        }
+
+        // Fetch current PIN hash
+        const { data: currentParty } = await supabase
+          .from('parties')
+          .select('admin_pin_hash')
+          .eq('id', partyId)
+          .single();
+
+        if (!currentParty?.admin_pin_hash) {
+          return NextResponse.json(
+            { error: 'No PIN set for this party' },
+            { status: 400 }
+          );
+        }
+
+        if (!verifyPin(body.currentPin, currentParty.admin_pin_hash)) {
+          return NextResponse.json(
+            { error: 'Invalid current PIN', code: 'INVALID_PIN' },
+            { status: 403 }
+          );
+        }
+
+        // Remove PIN
+        const { data: party, error } = await supabase
+          .from('parties')
+          .update({ admin_pin_hash: null })
+          .eq('id', partyId)
+          .select('id, name, status, created_at')
+          .single();
+
+        if (error || !party) {
+          return NextResponse.json(
+            { error: 'Party not found' },
+            { status: 404 }
+          );
+        }
+
+        return NextResponse.json({
+          id: party.id,
+          name: party.name,
+          status: party.status,
+          createdAt: party.created_at,
+          requiresPin: false,
+        });
+      } else {
+        // Set PIN - validate it's 6 digits
+        if (!/^\d{6}$/.test(body.pin)) {
+          return NextResponse.json(
+            { error: 'PIN must be exactly 6 digits', code: 'INVALID_PIN_FORMAT' },
+            { status: 400 }
+          );
+        }
+
+        const pinHash = hashPin(body.pin);
+        const { data: party, error } = await supabase
+          .from('parties')
+          .update({ admin_pin_hash: pinHash })
+          .eq('id', partyId)
+          .select('id, name, status, created_at')
+          .single();
+
+        if (error || !party) {
+          return NextResponse.json(
+            { error: 'Party not found' },
+            { status: 404 }
+          );
+        }
+
+        return NextResponse.json({
+          id: party.id,
+          name: party.name,
+          status: party.status,
+          createdAt: party.created_at,
+          requiresPin: true,
+        });
+      }
     }
 
     return NextResponse.json(

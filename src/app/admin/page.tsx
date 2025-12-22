@@ -30,10 +30,13 @@ import {
   Check as CheckIcon,
   Close as CloseIcon,
   EmojiEvents as TrophyIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon,
 } from '@mui/icons-material';
 import QRCode from 'qrcode';
 import styles from './page.module.css';
 import PartyStatsModal from '@/components/PartyStatsModal';
+import PinEntryModal from '@/components/PinEntryModal';
 
 interface Party {
   id: string;
@@ -44,6 +47,7 @@ interface Party {
   photoCount?: number;
   uploaderCount?: number;
   countdownTarget?: string | null;
+  requiresPin?: boolean;
 }
 
 export default function AdminPage() {
@@ -55,6 +59,9 @@ export default function AdminPage() {
   const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
   const [editedName, setEditedName] = useState<string>('');
   const [statsModalParty, setStatsModalParty] = useState<Party | null>(null);
+  const [pinModal, setPinModal] = useState<{ open: boolean; partyId: string | null; mode: 'set' | 'verify' | 'remove' }>({ open: false, partyId: null, mode: 'verify' });
+  const [pinError, setPinError] = useState<string>('');
+  const [pendingQrGeneration, setPendingQrGeneration] = useState<string | null>(null);
 
   const loadParties = useCallback(async () => {
     try {
@@ -251,6 +258,141 @@ export default function AdminPage() {
     window.open(`/api/parties/${partyId}/download`, '_blank');
   }, []);
 
+  const generateQrCode = useCallback(async (partyId: string, pin?: string) => {
+    try {
+      const response = await fetch(`/api/parties/${partyId}/regenerate-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: pin ? JSON.stringify({ pin }) : undefined,
+      });
+
+      if (response.status === 422) {
+        const data = await response.json();
+        if (data.code === 'MISSING_PIN') {
+          // PIN required - show PIN entry modal
+          setPendingQrGeneration(partyId);
+          setPinModal({ open: true, partyId, mode: 'verify' });
+          setPinError('');
+          return;
+        }
+      }
+
+      if (response.status === 403) {
+        const data = await response.json();
+        if (data.code === 'INVALID_PIN') {
+          setPinError('Invalid PIN. Please try again.');
+          return;
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to generate QR code');
+      }
+
+      const { joinToken } = await response.json();
+      const joinUrl = `${window.location.origin}/join/${partyId}?token=${joinToken}`;
+      const qrDataUrl = await QRCode.toDataURL(joinUrl, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+      });
+
+      setQrDataUrls(prev => ({ ...prev, [partyId]: qrDataUrl }));
+      setParties(prev =>
+        prev.map(p => (p.id === partyId ? { ...p, joinToken } : p))
+      );
+
+      // Close PIN modal on success
+      setPinModal({ open: false, partyId: null, mode: 'verify' });
+      setPendingQrGeneration(null);
+      setPinError('');
+    } catch (err) {
+      setError('Failed to generate QR code');
+    }
+  }, []);
+
+  const handlePinSubmit = useCallback(async (pin: string) => {
+    if (!pinModal.partyId) return;
+
+    if (pinModal.mode === 'set') {
+      // Set PIN for party
+      try {
+        const response = await fetch(`/api/parties/${pinModal.partyId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          setPinError(data.error || 'Failed to set PIN');
+          return;
+        }
+
+        const updatedParty = await response.json();
+        setParties(prev =>
+          prev.map(p => (p.id === pinModal.partyId ? { ...p, requiresPin: updatedParty.requiresPin } : p))
+        );
+        setPinModal({ open: false, partyId: null, mode: 'verify' });
+        setPinError('');
+      } catch (err) {
+        setPinError('Failed to set PIN');
+      }
+    } else if (pinModal.mode === 'remove') {
+      // Remove PIN from party
+      try {
+        const response = await fetch(`/api/parties/${pinModal.partyId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: null, currentPin: pin }),
+        });
+
+        if (response.status === 403) {
+          const data = await response.json();
+          if (data.code === 'INVALID_PIN') {
+            setPinError('Invalid PIN. Please try again.');
+            return;
+          }
+        }
+
+        if (!response.ok) {
+          const data = await response.json();
+          setPinError(data.error || 'Failed to remove PIN');
+          return;
+        }
+
+        const updatedParty = await response.json();
+        setParties(prev =>
+          prev.map(p => (p.id === pinModal.partyId ? { ...p, requiresPin: updatedParty.requiresPin } : p))
+        );
+        setPinModal({ open: false, partyId: null, mode: 'verify' });
+        setPinError('');
+      } catch (err) {
+        setPinError('Failed to remove PIN');
+      }
+    } else if (pinModal.mode === 'verify') {
+      // Verify PIN for QR code generation
+      if (pendingQrGeneration) {
+        await generateQrCode(pendingQrGeneration, pin);
+      }
+    }
+  }, [pinModal, pendingQrGeneration, generateQrCode]);
+
+  const togglePinProtection = useCallback((partyId: string, currentlyHasPin: boolean) => {
+    if (currentlyHasPin) {
+      // Remove PIN
+      setPinModal({ open: true, partyId, mode: 'remove' });
+      setPinError('');
+    } else {
+      // Set PIN
+      setPinModal({ open: true, partyId, mode: 'set' });
+      setPinError('');
+    }
+  }, []);
+
   return (
     <Container maxWidth="md" className={styles.container}>
       <Box className={styles.header}>
@@ -326,6 +468,22 @@ export default function AdminPage() {
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>
+                        <Tooltip title={party.requiresPin ? 'Remove PIN Protection' : 'Add PIN Protection'}>
+                          <IconButton
+                            size="small"
+                            onClick={() => togglePinProtection(party.id, !!party.requiresPin)}
+                            sx={{ 
+                              ml: -0.5,
+                              color: party.requiresPin ? '#667eea' : 'rgba(0, 0, 0, 0.4)',
+                              '&:hover': { 
+                                color: '#667eea',
+                                backgroundColor: 'rgba(102, 126, 234, 0.08)',
+                              },
+                            }}
+                          >
+                            {party.requiresPin ? <LockIcon fontSize="small" /> : <LockOpenIcon fontSize="small" />}
+                          </IconButton>
+                        </Tooltip>
                       </Box>
                       <Typography variant="body2" color="text.secondary">
                         Created {new Date(party.createdAt).toLocaleString()}
@@ -404,32 +562,7 @@ export default function AdminPage() {
                     variant="outlined"
                     size="small"
                     startIcon={<QrCodeIcon />}
-                    onClick={async () => {
-                      // Regenerate join token
-                      try {
-                        const response = await fetch(`/api/parties/${party.id}/regenerate-token`, {
-                          method: 'POST',
-                        });
-                        if (response.ok) {
-                          const { joinToken } = await response.json();
-                          const joinUrl = `${window.location.origin}/join/${party.id}?token=${joinToken}`;
-                          const qrDataUrl = await QRCode.toDataURL(joinUrl, {
-                            width: 300,
-                            margin: 2,
-                            color: {
-                              dark: '#000000',
-                              light: '#ffffff',
-                            },
-                          });
-                          setQrDataUrls(prev => ({ ...prev, [party.id]: qrDataUrl }));
-                          setParties(prev =>
-                            prev.map(p => (p.id === party.id ? { ...p, joinToken } : p))
-                          );
-                        }
-                      } catch (err) {
-                        setError('Failed to generate QR code');
-                      }
-                    }}
+                    onClick={() => generateQrCode(party.id)}
                   >
                     Generate QR Code
                   </Button>
@@ -522,6 +655,19 @@ export default function AdminPage() {
         onClose={() => setStatsModalParty(null)}
         partyId={statsModalParty?.id || ''}
         partyName={statsModalParty?.name || undefined}
+      />
+
+      {/* PIN Entry Modal */}
+      <PinEntryModal
+        open={pinModal.open}
+        onClose={() => {
+          setPinModal({ open: false, partyId: null, mode: 'verify' });
+          setPinError('');
+          setPendingQrGeneration(null);
+        }}
+        onSubmit={handlePinSubmit}
+        mode={pinModal.mode}
+        error={pinError}
       />
     </Container>
   );

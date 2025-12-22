@@ -1,5 +1,5 @@
 // Auth utilities
-export { generateJoinToken, hashJoinToken, verifyJoinToken } from './tokens';
+export { generateJoinToken, hashJoinToken, verifyJoinToken, hashPin, verifyPin } from './tokens';
 export {
   createSession,
   verifySession,

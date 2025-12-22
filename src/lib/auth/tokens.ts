@@ -41,3 +41,28 @@ export function verifyJoinToken(token: string, storedHash: string): boolean {
   }
   return result === 0;
 }
+
+/**
+ * Hash a PIN using SHA-256.
+ * This is what we store in the database for admin PINs.
+ */
+export function hashPin(pin: string): string {
+  return createHash('sha256').update(pin).digest('hex');
+}
+
+/**
+ * Verify a PIN against a stored hash.
+ * Uses constant-time comparison to prevent timing attacks.
+ */
+export function verifyPin(pin: string, storedHash: string): boolean {
+  const pinHash = hashPin(pin);
+  // Constant-time comparison to prevent timing attacks
+  if (pinHash.length !== storedHash.length) {
+    return false;
+  }
+  let result = 0;
+  for (let i = 0; i < pinHash.length; i++) {
+    result |= pinHash.charCodeAt(i) ^ storedHash.charCodeAt(i);
+  }
+  return result === 0;
+}

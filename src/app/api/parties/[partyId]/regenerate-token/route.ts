@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { generateJoinToken, hashJoinToken } from '@/lib/auth/tokens';
+import { generateJoinToken, hashJoinToken, verifyPin } from '@/lib/auth/tokens';
 
 export async function POST(
   request: Request,
@@ -13,6 +13,47 @@ export async function POST(
   try {
     const supabase = createServerClient();
     const { partyId } = await params;
+    
+    // Check if the party requires a PIN
+    const { data: party, error: fetchError } = await supabase
+      .from('parties')
+      .select('admin_pin_hash')
+      .eq('id', partyId)
+      .single();
+
+    if (fetchError) {
+      console.error('Failed to fetch party:', fetchError);
+      return NextResponse.json(
+        { error: 'Failed to fetch party' },
+        { status: 500 }
+      );
+    }
+
+    // If party has a PIN set, verify it
+    if (party.admin_pin_hash) {
+      let body;
+      try {
+        body = await request.json();
+      } catch (e) {
+        // No body provided
+        body = {};
+      }
+      const { pin } = body;
+
+      if (!pin) {
+        return NextResponse.json(
+          { error: 'PIN required', code: 'MISSING_PIN' },
+          { status: 422 }
+        );
+      }
+
+      if (!verifyPin(pin, party.admin_pin_hash)) {
+        return NextResponse.json(
+          { error: 'Invalid PIN', code: 'INVALID_PIN' },
+          { status: 403 }
+        );
+      }
+    }
 
     // Generate a new join token
     const joinToken = generateJoinToken();

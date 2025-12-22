@@ -15,7 +15,7 @@ export async function GET() {
     // Get all parties
     const { data: parties, error } = await supabase
       .from('parties')
-      .select('id, name, status, created_at')
+      .select('id, name, status, created_at, admin_pin_hash')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -46,6 +46,7 @@ export async function GET() {
           createdAt: party.created_at,
           photoCount: photoCount ?? 0,
           uploaderCount: uploaderCount ?? 0,
+          requiresPin: !!party.admin_pin_hash,
         };
       })
     );
