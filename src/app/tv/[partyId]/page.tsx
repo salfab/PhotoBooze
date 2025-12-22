@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
@@ -59,7 +59,9 @@ function getScatterProps(photoId: string, index: number, viewportWidth: number, 
 
 export default function TvPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const partyId = params.partyId as string;
+  const joinToken = searchParams.get('token');
   
   const [photos, setPhotos] = useState<PhotoWithUploader[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -95,9 +97,15 @@ export default function TvPage() {
   // Generate QR code for party join URL
   useEffect(() => {
     async function generateQR() {
+      // Only generate QR if we have a join token
+      if (!joinToken) {
+        console.warn('No join token provided - QR code will not work for new guests');
+        return;
+      }
+      
       try {
         const QRCode = (await import('qrcode')).default;
-        const joinUrl = `${window.location.origin}/upload/${partyId}`;
+        const joinUrl = `${window.location.origin}/join/${partyId}?token=${joinToken}`;
         const qrDataUrl = await QRCode.toDataURL(joinUrl, {
           width: 400,
           margin: 2,
@@ -112,7 +120,7 @@ export default function TvPage() {
       }
     }
     generateQR();
-  }, [partyId]);
+  }, [partyId, joinToken]);
 
   // Keep photosRef in sync with photos state
   useEffect(() => {

@@ -250,8 +250,9 @@ export default function AdminPage() {
     }
   }, []);
 
-  const openTvView = useCallback((partyId: string) => {
-    window.open(`/tv/${partyId}`, '_blank');
+  const openTvView = useCallback((partyId: string, joinToken?: string) => {
+    const url = joinToken ? `/tv/${partyId}?token=${joinToken}` : `/tv/${partyId}`;
+    window.open(url, '_blank');
   }, []);
 
   const downloadPhotos = useCallback((partyId: string) => {
@@ -574,7 +575,7 @@ export default function AdminPage() {
 
               <Box className={styles.actions}>
                 <Tooltip title="Open TV Display">
-                  <IconButton onClick={() => openTvView(party.id)} color="primary">
+                  <IconButton onClick={() => openTvView(party.id, party.joinToken)} color="primary">
                     <TvIcon />
                   </IconButton>
                 </Tooltip>
