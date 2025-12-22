@@ -4,6 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Box } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Only show corner countdown when this many seconds or less remain
+const SHOW_COUNTDOWN_THRESHOLD = 60 * 60; // 1 hour
+
 interface CountdownProps {
   countdownTarget: string | null;
 }
@@ -59,8 +62,14 @@ export default function Countdown({ countdownTarget }: CountdownProps) {
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setCountdownDisplay({ hours, minutes, seconds });
-        console.log(`⏱️ Countdown display updated: ${hours}h ${minutes}m ${seconds}s (${diff}ms remaining)`);
+        
+        // Only show countdown display when within threshold
+        if (totalSeconds <= SHOW_COUNTDOWN_THRESHOLD) {
+          setCountdownDisplay({ hours, minutes, seconds });
+          console.log(`⏱️ Countdown display updated: ${hours}h ${minutes}m ${seconds}s (${diff}ms remaining)`);
+        } else {
+          setCountdownDisplay(null);
+        }
 
         if (totalSeconds <= 10 && totalSeconds > 0) {
           setFinalCountdown(prev => {

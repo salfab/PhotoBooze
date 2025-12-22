@@ -480,7 +480,7 @@ export default function TvPage() {
               mb: 1,
               textAlign: 'center',
             }}>
-              📸 Join the Party!
+              Join the Party!
             </Typography>
             <Typography variant="body1" sx={{ 
               color: '#666', 
@@ -489,13 +489,18 @@ export default function TvPage() {
             }}>
               Scan to start sharing photos
             </Typography>
-            {qrCodeUrl && (
-              <Box sx={{
-                background: '#f8f8f8',
-                borderRadius: '16px',
-                padding: '16px',
-                mb: 2,
-              }}>
+            <Box sx={{
+              background: '#f8f8f8',
+              borderRadius: '16px',
+              padding: '16px',
+              mb: 2,
+              width: 250 + 32, // image + padding
+              height: 250 + 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {qrCodeUrl ? (
                 <img 
                   src={qrCodeUrl} 
                   alt="Scan to join" 
@@ -506,65 +511,89 @@ export default function TvPage() {
                     borderRadius: '8px',
                   }} 
                 />
-              </Box>
-            )}
+              ) : (
+                <CircularProgress size={40} sx={{ color: '#ccc' }} />
+              )}
+            </Box>
             <Typography variant="caption" sx={{ color: '#999' }}>
               Photos will appear here automatically
             </Typography>
           </Box>
 
-          {/* Guest List */}
-          {guests.length > 0 && (
-            <Box sx={{
-              background: 'rgba(0, 0, 0, 0.5)',
-              backdropFilter: 'blur(10px)',
-              borderRadius: '16px',
-              padding: '20px 32px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 1.5,
-            }}>
-              <Typography variant="body2" sx={{ 
-                color: 'rgba(255, 255, 255, 0.7)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                fontSize: '0.75rem',
-              }}>
-                Guests at the party
-              </Typography>
-              <Box sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 1,
-                justifyContent: 'center',
-                maxWidth: '500px',
-              }}>
-                <AnimatePresence>
-                  {guests.map((guest) => (
-                    <motion.div
-                      key={guest.id}
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    >
-                      <Box
-                        sx={{
-                          background: 'rgba(255, 255, 255, 0.15)',
-                          borderRadius: '20px',
-                          padding: '6px 14px',
-                          color: 'white',
-                          fontSize: '0.9rem',
-                        }}
-                      >
-                        {guest.display_name || 'Guest'}
-                      </Box>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </Box>
-            </Box>
-          )}
+          {/* Guest List - Always render container for smooth animation */}
+          <AnimatePresence>
+            {guests.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+              >
+                <Box sx={{
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  backdropFilter: 'blur(16px)',
+                  borderRadius: '20px',
+                  padding: '24px 40px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 2,
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                }}>
+                  <Typography sx={{ 
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.15em',
+                    fontSize: '0.7rem',
+                    fontWeight: 500,
+                  }}>
+                    🎉 Guests at the party
+                  </Typography>
+                  <Box sx={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                    justifyContent: 'center',
+                    maxWidth: '600px',
+                  }}>
+                    <AnimatePresence mode="popLayout">
+                      {guests.map((guest, index) => (
+                        <motion.div
+                          key={guest.id}
+                          layout
+                          initial={{ scale: 0, opacity: 0, y: 20 }}
+                          animate={{ scale: 1, opacity: 1, y: 0 }}
+                          exit={{ scale: 0.8, opacity: 0 }}
+                          transition={{ 
+                            type: 'spring', 
+                            stiffness: 400, 
+                            damping: 25,
+                            delay: index * 0.05,
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%)',
+                              borderRadius: '24px',
+                              padding: '8px 18px',
+                              color: 'white',
+                              fontSize: '0.95rem',
+                              fontWeight: 500,
+                              border: '1px solid rgba(255, 255, 255, 0.15)',
+                              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {guest.display_name || 'Guest'}
+                          </Box>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </Box>
+                </Box>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Box>
 
         {/* Countdown overlay */}
