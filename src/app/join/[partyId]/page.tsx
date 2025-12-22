@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import {
   Container,
@@ -22,7 +22,18 @@ export default function JoinPage() {
   const router = useRouter();
   
   const partyId = params.partyId as string;
-  const token = searchParams.get('token');
+  
+  // Store token in a ref to prevent it from being lost during re-renders
+  // useSearchParams can sometimes return null during navigation/state updates
+  const tokenRef = useRef<string | null>(null);
+  const urlToken = searchParams.get('token');
+  
+  // Capture token on first render when it's available
+  if (urlToken && !tokenRef.current) {
+    tokenRef.current = urlToken;
+  }
+  
+  const token = tokenRef.current || urlToken;
 
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -80,7 +91,11 @@ export default function JoinPage() {
   }, [partyId, token]);
 
   const handleJoin = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setError('Join token is missing. Please scan the QR code again.');
+      console.error('handleJoin called but token is null/undefined');
+      return;
+    }
 
     setLoading(true);
     setError(null);

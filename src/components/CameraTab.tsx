@@ -101,6 +101,11 @@ export default function CameraTab({
     processed: ProcessedImage,
     comment: string
   ): Promise<UploadedPhoto | null> => {
+    // Calculate sizes for error reporting
+    const originalSizeMB = (processed.original.size / (1024 * 1024)).toFixed(2);
+    const tvSizeMB = (processed.tv.size / (1024 * 1024)).toFixed(2);
+    const totalSizeMB = ((processed.original.size + processed.tv.size) / (1024 * 1024)).toFixed(2);
+    
     try {
       const formData = new FormData();
       formData.append('original', new Blob([processed.original], { type: processed.originalMime }), `original.${processed.originalExt}`);
@@ -117,6 +122,15 @@ export default function CameraTab({
       });
 
       if (!response.ok) {
+        // Special handling for 413 Payload Too Large
+        if (response.status === 413) {
+          throw new Error(
+            `Image too large to upload. ` +
+            `Original: ${originalSizeMB}MB, TV: ${tvSizeMB}MB, Total: ${totalSizeMB}MB. ` +
+            `The server limit may be lower than expected. Try a smaller image.`
+          );
+        }
+        
         const data = await response.json();
         throw new Error(data.error || 'Upload failed');
       }

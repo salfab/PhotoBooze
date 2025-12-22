@@ -10,6 +10,11 @@ import {
   BottomNavigation,
   BottomNavigationAction,
   Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from '@mui/material';
 import {
   CameraAlt as CameraIcon,
@@ -40,6 +45,7 @@ export default function UploadPage() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [partyName, setPartyName] = useState<string | null>(null);
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
 
   // Sync activeTab with URL hash
   useEffect(() => {
@@ -136,10 +142,45 @@ export default function UploadPage() {
         </Box>
 
         {error && (
-          <Alert severity="error" onClose={() => setError(null)} className={styles.alert}>
-            {error}
+          <Alert 
+            severity="error" 
+            onClose={() => setError(null)} 
+            className={styles.alert}
+            onClick={() => error.length > 60 && setErrorDialogOpen(true)}
+            sx={{ 
+              cursor: error.length > 60 ? 'pointer' : 'default',
+              '& .MuiAlert-message': {
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '100%',
+              }
+            }}
+          >
+            {error.length > 60 ? `${error.substring(0, 60)}... (tap for more)` : error}
           </Alert>
         )}
+
+        {/* Full Error Dialog */}
+        <Dialog 
+          open={errorDialogOpen} 
+          onClose={() => setErrorDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Error Details</DialogTitle>
+          <DialogContent>
+            <Typography sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {error}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setErrorDialogOpen(false)}>Close</Button>
+            <Button onClick={() => { setError(null); setErrorDialogOpen(false); }} color="error">
+              Dismiss Error
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {uploadSuccess && (
           <Alert severity="success" className={styles.alert}>

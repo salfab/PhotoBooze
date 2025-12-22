@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
+import MobileDebug from "@/components/MobileDebug";
 
 export const metadata: Metadata = {
   title: "PhotoBooze",
@@ -18,7 +20,12 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet" />
       </head>
-      <body>{children}</body>
+      <body>
+        <Suspense fallback={null}>
+          <MobileDebug />
+        </Suspense>
+        {children}
+      </body>
     </html>
   );
 }

@@ -43,9 +43,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the join token
-    if (!verifyJoinToken(token, party.join_token_hash)) {
+    if (!party.join_token_hash) {
+      console.error('Party has no join_token_hash:', partyId);
       return NextResponse.json(
-        { error: 'Invalid join token' },
+        { error: 'Party is not configured for joining' },
+        { status: 403 }
+      );
+    }
+    
+    if (!verifyJoinToken(token, party.join_token_hash)) {
+      console.error('Token verification failed for party:', partyId, 'token length:', token?.length);
+      return NextResponse.json(
+        { error: 'Invalid join token. The QR code may have expired. Please ask for a new one.' },
         { status: 403 }
       );
     }
