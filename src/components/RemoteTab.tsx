@@ -39,6 +39,7 @@ interface RemoteTabProps {
 export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
   const [tvState, setTvState] = useState<TVState | null>(null);
   const [commentModalOpen, setCommentModalOpen] = useState(false);
+  const [idlePromptsEnabled, setIdlePromptsEnabled] = useState(true);
   const supabaseRef = useRef(createClient());
 
   // Request current state from TV
@@ -142,6 +143,28 @@ export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
       }
     });
   }, [partyId]);
+
+  // Send toggle idle prompts command to TV
+  const sendToggleIdlePrompts = useCallback(() => {
+    const supabase = supabaseRef.current;
+    const channel = supabase.channel(`tv-control:${partyId}`);
+    const newState = !idlePromptsEnabled;
+    
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('Sending toggle-idle-prompts command:', newState);
+        channel.send({
+          type: 'broadcast',
+          event: 'toggle-idle-prompts',
+          payload: { enabled: newState },
+        });
+        setIdlePromptsEnabled(newState);
+        setTimeout(() => {
+          supabase.removeChannel(channel);
+        }, 500);
+      }
+    });
+  }, [partyId, idlePromptsEnabled]);
 
   if (!tvState) {
     return (
@@ -325,6 +348,22 @@ export default function RemoteTab({ partyId, openTvView }: RemoteTabProps) {
         >
           Show Prompt on TV
         </Button>
+      </Box>
+
+      {/* Idle Prompts Toggle Switch */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', maxWidth: '340px' }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={idlePromptsEnabled}
+              onChange={sendToggleIdlePrompts}
+              color="secondary"
+            />
+          }
+          label="Auto Idle Prompts"
+          className={styles.idlePromptsSwitch}
+          sx={{ width: '100%', m: 0 }}
+        />
       </Box>
     </Box>
   );

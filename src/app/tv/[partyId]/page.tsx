@@ -74,6 +74,7 @@ export default function TvPage() {
   const [showIdlePrompt, setShowIdlePrompt] = useState(false);
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
   const [lastPhotoTime, setLastPhotoTime] = useState<number>(Date.now());
+  const [idlePromptsEnabled, setIdlePromptsEnabled] = useState(true);
   
   const supabase = useMemo(() => createClient(), []);
   const stateChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -419,6 +420,13 @@ export default function TvPage() {
         setCurrentPrompt(randomPrompt);
         setShowIdlePrompt(true);
       })
+      .on('broadcast', { event: 'toggle-idle-prompts' }, ({ payload }) => {
+        console.log('Toggle idle prompts command received:', payload);
+        setIdlePromptsEnabled(payload.enabled);
+        if (!payload.enabled) {
+          setShowIdlePrompt(false); // Hide prompt if disabling
+        }
+      })
       .subscribe();
 
     return () => {
@@ -467,17 +475,19 @@ export default function TvPage() {
         clearTimeout(idleTimerRef.current);
       }
       
-      // Set new idle timer
-      idleTimerRef.current = setTimeout(() => {
-        // Mix of simple and remaster prompts
-        const allPrompts = [
-          ...idlePromptsData.simplePrompts,
-          ...idlePromptsData.remasterPrompts,
-        ];
-        const randomPrompt = allPrompts[Math.floor(Math.random() * allPrompts.length)];
-        setCurrentPrompt(randomPrompt);
-        setShowIdlePrompt(true);
-      }, IDLE_TIME_MS);
+      // Set new idle timer only if idle prompts are enabled
+      if (idlePromptsEnabled) {
+        idleTimerRef.current = setTimeout(() => {
+          // Mix of simple and remaster prompts
+          const allPrompts = [
+            ...idlePromptsData.simplePrompts,
+            ...idlePromptsData.remasterPrompts,
+          ];
+          const randomPrompt = allPrompts[Math.floor(Math.random() * allPrompts.length)];
+          setCurrentPrompt(randomPrompt);
+          setShowIdlePrompt(true);
+        }, IDLE_TIME_MS);
+      }
     }
     
     return () => {
@@ -485,7 +495,7 @@ export default function TvPage() {
         clearTimeout(idleTimerRef.current);
       }
     };
-  }, [photos.length]);
+  }, [photos.length, idlePromptsEnabled]);
 
   if (loading) {
     return (
