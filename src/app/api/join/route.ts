@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { partyId, token, displayName } = body;
+    const { partyId, token, displayName, confirm } = body;
 
     logJoinContext('info', 'Join request received', {
       requestId,
@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
       hasToken: !!token,
       tokenLength: token?.length,
       displayName: displayName || 'anonymous',
+      confirm: !!confirm,
       userAgent: request.headers.get('user-agent'),
       ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
     });
@@ -144,16 +145,67 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create the uploader record
+    // Create the uploader record or return existing one if name already exists
     const uploaderCreateStart = Date.now();
-    const { data: uploader, error: uploaderError } = await supabase
-      .from('uploaders')
-      .insert({
-        party_id: partyId,
-        display_name: displayName || null,
-      })
-      .select('id, display_name')
-      .single();
+    let uploader = null;
+    let uploaderError = null;
+    
+    // If display name is provided, check if an uploader with this name already exists
+    if (displayName) {
+      const { data: existingUploader } = await supabase
+        .from('uploaders')
+        .select('id, display_name')
+        .eq('party_id', partyId)
+        .eq('display_name', displayName)
+        .single();
+      
+      if (existingUploader) {
+        // If existing uploader found but no confirmation, ask for confirmation
+        if (!confirm) {
+          logJoinContext('info', 'Existing uploader found, requesting confirmation', {
+            requestId,
+            partyId,
+            uploaderId: existingUploader.id,
+            displayName: existingUploader.display_name
+          });
+          
+          return NextResponse.json({
+            requiresConfirmation: true,
+            message: `Welcome back! You were already in this party as "${displayName}". Do you want to continue with your existing photos?`,
+            existingUploader: {
+              id: existingUploader.id,
+              displayName: existingUploader.display_name
+            }
+          }, { status: 200 });
+        }
+        
+        // Confirmation provided, return the existing uploader
+        uploader = existingUploader;
+        
+        logJoinContext('info', 'Confirmed return of existing uploader', {
+          requestId,
+          partyId,
+          uploaderId: uploader.id,
+          displayName: uploader.display_name,
+          action: 'confirmed_takeover'
+        });
+      }
+    }
+    
+    // If no existing uploader found, create a new one
+    if (!uploader) {
+      const result = await supabase
+        .from('uploaders')
+        .insert({
+          party_id: partyId,
+          display_name: displayName || null,
+        })
+        .select('id, display_name')
+        .single();
+      
+      uploader = result.data;
+      uploaderError = result.error;
+    }
 
     if (uploaderError || !uploader) {
       logJoinContext('error', 'Failed to create uploader record', {
