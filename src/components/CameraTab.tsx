@@ -103,15 +103,29 @@ export default function CameraTab({
   ): Promise<UploadedPhoto | null> => {
     // Calculate sizes for error reporting
     const originalSizeMB = (processed.original.size / (1024 * 1024)).toFixed(2);
-    const tvSizeMB = (processed.tv.size / (1024 * 1024)).toFixed(2);
-    const totalSizeMB = ((processed.original.size + processed.tv.size) / (1024 * 1024)).toFixed(2);
+    const tvSizeMB = processed.tv ? (processed.tv.size / (1024 * 1024)).toFixed(2) : 'N/A';
+    const totalSizeMB = ((processed.original.size + (processed.tv?.size || 0)) / (1024 * 1024)).toFixed(2);
+    
+    console.log('🚀 Uploading photo:', {
+      original: `${originalSizeMB}MB`,
+      tv: tvSizeMB,
+      useSameForTv: processed.useSameForTv,
+      analysis: processed.analysis
+    });
     
     try {
       const formData = new FormData();
       formData.append('original', new Blob([processed.original], { type: processed.originalMime }), `original.${processed.originalExt}`);
-      formData.append('tv', new Blob([processed.tv], { type: processed.tvMime }), 'tv.jpg');
+      
+      // Only append TV file if it's different from original
+      if (!processed.useSameForTv && processed.tv) {
+        formData.append('tv', new Blob([processed.tv], { type: processed.tvMime }), 'tv.jpg');
+      }
+      
       formData.append('originalMime', processed.originalMime);
       formData.append('originalExt', processed.originalExt);
+      formData.append('useSameForTv', processed.useSameForTv.toString()); // New flag for server
+      
       if (comment) {
         formData.append('comment', comment);
       }

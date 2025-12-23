@@ -139,24 +139,155 @@ async function shouldResizeOriginal(blob: Blob): Promise<boolean> {
 }
 
 /**
- * Process an image file for upload.
- * Returns both original (converted if HEIC) and TV-sized versions.
+ * Analyze if creating a separate TV version is beneficial.
+ * Returns analysis of potential savings and efficiency.
+ */
+async function analyzeTvVersionBenefit(originalBlob: Blob): Promise<{
+  shouldCreateSeparate: boolean;
+  expectedSavings: number;
+  resolutionReduction: number;
+  reason: string;
+}> {
+  const img = await loadImage(originalBlob);
+  
+  // Calculate what TV dimensions would be
+  const scaleX = TV_MAX_WIDTH / img.width;
+  const scaleY = TV_MAX_HEIGHT / img.height;
+  const scale = Math.min(scaleX, scaleY, 1);
+  
+  const tvWidth = Math.round(img.width * scale);
+  const tvHeight = Math.round(img.height * scale);
+  const resolutionReduction = ((img.width * img.height) - (tvWidth * tvHeight)) / (img.width * img.height);
+  
+  // Case 1: Already TV-sized or smaller
+  if (img.width <= TV_MAX_WIDTH && img.height <= TV_MAX_HEIGHT) {
+    // Still create separate if file is large (>1.5MB) - compression might help
+    if (originalBlob.size <= 1.5 * 1024 * 1024) {
+      return {
+        shouldCreateSeparate: false,
+        expectedSavings: 0,
+        resolutionReduction,
+        reason: 'Already TV-sized and file small enough (<1.5MB)'
+      };
+    }
+    
+    // Try compression estimation for large files at TV size
+    const expectedCompressedSize = originalBlob.size * 0.6; // Estimate 40% compression
+    if (expectedCompressedSize > originalBlob.size * 0.8) {
+      return {
+        shouldCreateSeparate: false,
+        expectedSavings: 0,
+        resolutionReduction,
+        reason: 'Compression wouldn\'t provide significant savings'
+      };
+    }
+  }
+  
+  // Case 2: Minimal resolution reduction and small file
+  if (resolutionReduction < 0.2 && originalBlob.size < 2 * 1024 * 1024) {
+    return {
+      shouldCreateSeparate: false,
+      expectedSavings: 0,
+      resolutionReduction,
+      reason: 'Minimal resolution reduction (<20%) and file already small (<2MB)'
+    };
+  }
+  
+  // Estimate potential file size savings
+  const estimatedSizeReduction = resolutionReduction * 0.8; // Conservative estimate
+  const expectedSavings = originalBlob.size * estimatedSizeReduction;
+  
+  // Case 3: Expected savings too small to justify
+  if (expectedSavings < 300 * 1024) { // Less than 300KB savings
+    return {
+      shouldCreateSeparate: false,
+      expectedSavings,
+      resolutionReduction,
+      reason: 'Expected savings too small (<300KB)'
+    };
+  }
+  
+  // Worth creating separate TV version
+  return {
+    shouldCreateSeparate: true,
+    expectedSavings,
+    resolutionReduction,
+    reason: `Significant savings expected: ${(expectedSavings / (1024 * 1024)).toFixed(1)}MB`
+  };
+}
+
+/**
+ * Try format optimization (compression) without resizing.
+ */
+async function tryFormatOptimization(blob: Blob, targetQuality: number): Promise<{
+  optimizedBlob: Blob;
+  sizeDifference: number;
+  compressionRatio: number;
+}> {
+  const img = await loadImage(blob);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Failed to get canvas context');
+  
+  // Use high quality settings for recompression
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0);
+  
+  const optimized = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (result) => result ? resolve(result) : reject(new Error('Format optimization failed')),
+      'image/jpeg',
+      targetQuality
+    );
+  });
+  
+  return {
+    optimizedBlob: optimized,
+    sizeDifference: blob.size - optimized.size,
+    compressionRatio: optimized.size / blob.size
+  };
+}
+
+/**
+ * Process an image file for upload with smart optimization.
+ * Returns both original (converted if HEIC) and TV-sized versions, or indicates if same file should be used.
  */
 export interface ProcessedImage {
   original: Blob;
   originalMime: string;
   originalExt: string;
-  tv: Blob;
+  tv: Blob | null; // null if should use original
   tvMime: string;
+  useSameForTv: boolean; // true if TV should use original file
+  analysis: {
+    originalProcessed: boolean;
+    tvAnalysis: {
+      shouldCreateSeparate: boolean;
+      expectedSavings: number;
+      resolutionReduction: number;
+      reason: string;
+    };
+    formatOptimization?: {
+      sizeDifference: number;
+      compressionRatio: number;
+    };
+  };
 }
 
 export async function processImage(file: File): Promise<ProcessedImage> {
+  console.log(`🖼️ Processing image: ${file.name} (${formatFileSize(file.size)})`);
+  
   let originalBlob: Blob;
   let originalMime: string;
   let originalExt: string;
   
-  // Convert HEIC to JPEG if needed
+  // Step 1: Handle HEIC conversion (mandatory)
   if (isHeicFile(file)) {
+    console.log('🔄 Converting HEIC to JPEG...');
     originalBlob = await convertHeicToJpeg(file);
     originalMime = 'image/jpeg';
     originalExt = 'jpg';
@@ -180,24 +311,90 @@ export async function processImage(file: File): Promise<ProcessedImage> {
     }
   }
   
-  // Only resize/convert original if needed (too large in dimensions or file size)
-  const needsResize = await shouldResizeOriginal(originalBlob);
-  if (needsResize) {
+  let originalProcessed = false;
+  let formatOptimization: { sizeDifference: number; compressionRatio: number } | undefined;
+  
+  // Step 2: Check if original needs processing
+  let needsResizing = await shouldResizeOriginal(originalBlob);
+  
+  if (needsResizing) {
+    console.log('⚠️ Image needs processing (too large)');
+    
+    // Try format optimization first (avoid resizing if possible)
+    try {
+      const optimization = await tryFormatOptimization(originalBlob, JPEG_QUALITY);
+      formatOptimization = {
+        sizeDifference: optimization.sizeDifference,
+        compressionRatio: optimization.compressionRatio
+      };
+      
+      console.log(`🗜️ Format optimization: ${formatFileSize(optimization.sizeDifference)} saved (${(optimization.compressionRatio * 100).toFixed(1)}% of original)`);
+      
+      // Check if compression alone solved the size issue
+      if (optimization.optimizedBlob.size <= MAX_FILE_SIZE) {
+        const img = await loadImage(optimization.optimizedBlob);
+        if (img.width <= ORIGINAL_MAX_SIZE && img.height <= ORIGINAL_MAX_SIZE) {
+          originalBlob = optimization.optimizedBlob;
+          originalMime = 'image/jpeg';
+          originalExt = 'jpg';
+          needsResizing = false;
+          originalProcessed = true;
+          console.log('✅ Format optimization sufficient, avoiding resize');
+        }
+      }
+    } catch (err) {
+      console.warn('Format optimization failed, proceeding with resize:', err);
+    }
+  }
+  
+  // Step 3: Resize only if format optimization wasn't enough
+  if (needsResizing) {
+    console.log('📏 Resizing required after format optimization');
     originalBlob = await resizeImage(originalBlob, ORIGINAL_MAX_SIZE, ORIGINAL_MAX_SIZE, JPEG_QUALITY);
     originalMime = 'image/jpeg';
     originalExt = 'jpg';
+    originalProcessed = true;
   }
   
-  // Create TV-sized version
-  const tvBlob = await resizeForTv(originalBlob);
+  // Step 4: Analyze TV version benefit
+  console.log('📺 Analyzing TV version benefit...');
+  const tvAnalysis = await analyzeTvVersionBenefit(originalBlob);
   
-  return {
+  console.log(`📺 TV analysis: ${tvAnalysis.reason}`);
+  
+  let tvBlob: Blob | null = null;
+  let useSameForTv = true;
+  
+  if (tvAnalysis.shouldCreateSeparate) {
+    console.log('📺 Creating separate TV version...');
+    tvBlob = await resizeForTv(originalBlob);
+    useSameForTv = false;
+    console.log(`📺 TV version created: ${formatFileSize(tvBlob.size)} (${formatFileSize(tvAnalysis.expectedSavings)} saved)`);
+  } else {
+    console.log('📺 Using original as TV version (no separate file needed)');
+  }
+  
+  const result = {
     original: originalBlob,
     originalMime,
     originalExt,
     tv: tvBlob,
     tvMime: 'image/jpeg',
+    useSameForTv,
+    analysis: {
+      originalProcessed,
+      tvAnalysis,
+      formatOptimization
+    }
   };
+  
+  console.log('🎉 Image processing complete:', {
+    original: formatFileSize(originalBlob.size),
+    tv: tvBlob ? formatFileSize(tvBlob.size) : 'Using original',
+    storageSaved: useSameForTv && tvAnalysis.expectedSavings > 0 ? formatFileSize(tvAnalysis.expectedSavings) : '0B'
+  });
+  
+  return result;
 }
 
 /**
