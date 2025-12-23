@@ -8,15 +8,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, STORAGE_BUCKET, getPartyFolder } from '@/lib/supabase/server';
 import { hashPin, verifyPin } from '@/lib/auth/tokens';
 
+function logPartyDetailContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
+  const timestamp = new Date().toISOString();
+  const logData = {
+    timestamp,
+    level: level.toUpperCase(),
+    service: 'api.parties.detail',
+    message,
+    ...context
+  };
+  console.log(JSON.stringify(logData));
+}
+
 interface RouteParams {
   params: Promise<{ partyId: string }>;
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  const requestId = Math.random().toString(36).substring(2, 10);
+  const startTime = Date.now();
+  
   try {
     const { partyId } = await params;
+    
+    logPartyDetailContext('info', 'Party detail request received', {
+      requestId,
+      partyId
+    });
+    
     const supabase = createServerClient();
 
+    // Get party details
+    const partyQueryStart = Date.now();
     const { data: party, error } = await supabase
       .from('parties')
       .select('id, name, status, created_at, countdown_target')
@@ -24,23 +47,56 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (error || !party) {
+      logPartyDetailContext('warn', 'Party not found', {
+        requestId,
+        partyId,
+        queryTime: Date.now() - partyQueryStart,
+        error: error?.message
+      });
       return NextResponse.json(
         { error: 'Party not found' },
         { status: 404 }
       );
     }
 
+    logPartyDetailContext('info', 'Party found, getting counts', {
+      requestId,
+      partyId: party.id,
+      partyName: party.name,
+      partyQueryTime: Date.now() - partyQueryStart
+    });
+
     // Get photo count
-    const { count: photoCount } = await supabase
+    const countsStart = Date.now();
+    const { count: photoCount, error: photoError } = await supabase
       .from('photos')
       .select('*', { count: 'exact', head: true })
       .eq('party_id', partyId);
 
     // Get uploader count
-    const { count: uploaderCount } = await supabase
+    const { count: uploaderCount, error: uploaderError } = await supabase
       .from('uploaders')
       .select('*', { count: 'exact', head: true })
       .eq('party_id', partyId);
+
+    if (photoError || uploaderError) {
+      logPartyDetailContext('warn', 'Failed to get counts for party detail', {
+        requestId,
+        partyId,
+        photoError: photoError?.message,
+        uploaderError: uploaderError?.message
+      });
+    }
+
+    const totalTime = Date.now() - startTime;
+    logPartyDetailContext('info', 'Party detail completed successfully', {
+      requestId,
+      partyId,
+      photoCount: photoCount ?? 0,
+      uploaderCount: uploaderCount ?? 0,
+      countsTime: Date.now() - countsStart,
+      totalTime
+    });
 
     return NextResponse.json({
       id: party.id,
@@ -52,7 +108,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       uploaderCount: uploaderCount ?? 0,
     });
   } catch (error) {
-    console.error('Get party error:', error);
+    const totalTime = Date.now() - startTime;
+    logPartyDetailContext('error', 'Unexpected error in party detail', {
+      requestId,
+      partyId: (await params).partyId,
+      totalTime,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -61,14 +125,36 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  const requestId = Math.random().toString(36).substring(2, 10);
+  const startTime = Date.now();
+  
   try {
     const { partyId } = await params;
+    
+    logPartyDetailContext('info', 'Party update request received', {
+      requestId,
+      partyId
+    });
+    
     const body = await request.json();
     const supabase = createServerClient();
 
     // Handle name updates
     if (body.name !== undefined) {
+      logPartyDetailContext('info', 'Processing name update', {
+        requestId,
+        partyId,
+        newName: body.name,
+        nameType: typeof body.name
+      });
+      
       if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
+        logPartyDetailContext('warn', 'Invalid name provided for update', {
+          requestId,
+          partyId,
+          providedName: body.name,
+          nameType: typeof body.name
+        });
         return NextResponse.json(
           { error: 'Name is required and must be a non-empty string' },
           { status: 400 }
@@ -76,20 +162,38 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       // Check if name is already taken by another party
-      const { data: existingParty } = await supabase
+      const nameCheckStart = Date.now();
+      const { data: existingParty, error: nameCheckError } = await supabase
         .from('parties')
         .select('id')
         .eq('name', body.name.trim())
         .neq('id', partyId)
         .single();
 
+      if (nameCheckError && nameCheckError.code !== 'PGRST116') {
+        logPartyDetailContext('error', 'Failed to check name availability', {
+          requestId,
+          partyId,
+          nameCheckTime: Date.now() - nameCheckStart,
+          error: nameCheckError.message
+        });
+      }
+
       if (existingParty) {
+        logPartyDetailContext('warn', 'Name already taken by another party', {
+          requestId,
+          partyId,
+          requestedName: body.name.trim(),
+          conflictingPartyId: existingParty.id,
+          nameCheckTime: Date.now() - nameCheckStart
+        });
         return NextResponse.json(
           { error: 'This name is already taken by another party' },
           { status: 409 }
         );
       }
 
+      const updateStart = Date.now();
       const { data: party, error } = await supabase
         .from('parties')
         .update({ name: body.name.trim() })
@@ -98,11 +202,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         .single();
 
       if (error || !party) {
+        logPartyDetailContext('error', 'Failed to update party name', {
+          requestId,
+          partyId,
+          updateTime: Date.now() - updateStart,
+          error: error?.message
+        });
         return NextResponse.json(
           { error: 'Party not found' },
           { status: 404 }
         );
       }
+
+      const totalTime = Date.now() - startTime;
+      logPartyDetailContext('info', 'Party name updated successfully', {
+        requestId,
+        partyId,
+        oldName: '[unknown]',
+        newName: party.name,
+        nameCheckTime: Date.now() - nameCheckStart,
+        updateTime: Date.now() - updateStart,
+        totalTime
+      });
 
       return NextResponse.json({
         id: party.id,
@@ -114,6 +235,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Handle status updates
     if (body.status && ['active', 'closed'].includes(body.status)) {
+      logPartyDetailContext('info', 'Processing status update', {
+        requestId,
+        partyId,
+        newStatus: body.status
+      });
+      
+      const updateStart = Date.now();
       const { data: party, error } = await supabase
         .from('parties')
         .update({ status: body.status })
@@ -122,11 +250,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         .single();
 
       if (error || !party) {
+        logPartyDetailContext('error', 'Failed to update party status', {
+          requestId,
+          partyId,
+          updateTime: Date.now() - updateStart,
+          error: error?.message
+        });
         return NextResponse.json(
           { error: 'Party not found' },
           { status: 404 }
         );
       }
+
+      const totalTime = Date.now() - startTime;
+      logPartyDetailContext('info', 'Party status updated successfully', {
+        requestId,
+        partyId,
+        newStatus: party.status,
+        updateTime: Date.now() - updateStart,
+        totalTime
+      });
 
       return NextResponse.json({
         id: party.id,
@@ -138,6 +281,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Handle countdown target updates
     if (body.countdownTarget !== undefined) {
+      logPartyDetailContext('info', 'Processing countdown target update', {
+        requestId,
+        partyId,
+        newCountdownTarget: body.countdownTarget
+      });
+      
+      const updateStart = Date.now();
       const { data: party, error } = await supabase
         .from('parties')
         .update({ countdown_target: body.countdownTarget })
@@ -146,11 +296,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         .single();
 
       if (error || !party) {
+        logPartyDetailContext('error', 'Failed to update countdown target', {
+          requestId,
+          partyId,
+          updateTime: Date.now() - updateStart,
+          error: error?.message
+        });
         return NextResponse.json(
           { error: 'Party not found' },
           { status: 404 }
         );
       }
+
+      const totalTime = Date.now() - startTime;
+      logPartyDetailContext('info', 'Countdown target updated successfully', {
+        requestId,
+        partyId,
+        newCountdownTarget: party.countdown_target,
+        updateTime: Date.now() - updateStart,
+        totalTime
+      });
 
       return NextResponse.json({
         id: party.id,
@@ -164,8 +329,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Handle PIN updates (set or remove)
     if (body.pin !== undefined) {
       if (body.pin === null) {
+        logPartyDetailContext('info', 'Processing PIN removal', {
+          requestId,
+          partyId,
+          hasCurrentPin: !!body.currentPin
+        });
+        
         // Remove PIN - require current PIN for verification
         if (!body.currentPin) {
+          logPartyDetailContext('warn', 'Missing current PIN for removal', {
+            requestId,
+            partyId
+          });
           return NextResponse.json(
             { error: 'Current PIN required to remove PIN', code: 'MISSING_CURRENT_PIN' },
             { status: 422 }
@@ -173,20 +348,34 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         // Fetch current PIN hash
-        const { data: currentParty } = await supabase
+        const pinCheckStart = Date.now();
+        const { data: currentParty, error: pinFetchError } = await supabase
           .from('parties')
           .select('admin_pin_hash')
           .eq('id', partyId)
           .single();
 
-        if (!currentParty?.admin_pin_hash) {
+        if (pinFetchError || !currentParty?.admin_pin_hash) {
+          logPartyDetailContext('error', 'Failed to fetch current PIN or no PIN set', {
+            requestId,
+            partyId,
+            pinCheckTime: Date.now() - pinCheckStart,
+            error: pinFetchError?.message,
+            hasPinHash: !!currentParty?.admin_pin_hash
+          });
           return NextResponse.json(
             { error: 'No PIN set for this party' },
             { status: 400 }
           );
         }
 
+        const verifyStart = Date.now();
         if (!verifyPin(body.currentPin, currentParty.admin_pin_hash)) {
+          logPartyDetailContext('warn', 'Invalid current PIN provided for removal', {
+            requestId,
+            partyId,
+            verifyTime: Date.now() - verifyStart
+          });
           return NextResponse.json(
             { error: 'Invalid current PIN', code: 'INVALID_PIN' },
             { status: 403 }
@@ -194,6 +383,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         // Remove PIN
+        const updateStart = Date.now();
         const { data: party, error } = await supabase
           .from('parties')
           .update({ admin_pin_hash: null })
@@ -202,11 +392,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           .single();
 
         if (error || !party) {
+          logPartyDetailContext('error', 'Failed to remove PIN from party', {
+            requestId,
+            partyId,
+            updateTime: Date.now() - updateStart,
+            error: error?.message
+          });
           return NextResponse.json(
             { error: 'Party not found' },
             { status: 404 }
           );
         }
+
+        const totalTime = Date.now() - startTime;
+        logPartyDetailContext('info', 'PIN removed successfully', {
+          requestId,
+          partyId,
+          pinCheckTime: Date.now() - pinCheckStart,
+          verifyTime: Date.now() - verifyStart,
+          updateTime: Date.now() - updateStart,
+          totalTime
+        });
 
         return NextResponse.json({
           id: party.id,
@@ -216,15 +422,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           requiresPin: false,
         });
       } else {
+        logPartyDetailContext('info', 'Processing PIN creation/update', {
+          requestId,
+          partyId,
+          pinFormat: /^\d{6}$/.test(body.pin) ? 'valid' : 'invalid'
+        });
+        
         // Set PIN - validate it's 6 digits
         if (!/^\d{6}$/.test(body.pin)) {
+          logPartyDetailContext('warn', 'Invalid PIN format provided', {
+            requestId,
+            partyId,
+            pinLength: body.pin?.length,
+            pinPattern: typeof body.pin === 'string' ? body.pin.replace(/./g, '*') : 'non-string'
+          });
           return NextResponse.json(
             { error: 'PIN must be exactly 6 digits', code: 'INVALID_PIN_FORMAT' },
             { status: 400 }
           );
         }
 
+        const hashStart = Date.now();
         const pinHash = hashPin(body.pin);
+        const hashTime = Date.now() - hashStart;
+        
+        const updateStart = Date.now();
         const { data: party, error } = await supabase
           .from('parties')
           .update({ admin_pin_hash: pinHash })
@@ -233,11 +455,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           .single();
 
         if (error || !party) {
+          logPartyDetailContext('error', 'Failed to set PIN for party', {
+            requestId,
+            partyId,
+            updateTime: Date.now() - updateStart,
+            error: error?.message
+          });
           return NextResponse.json(
             { error: 'Party not found' },
             { status: 404 }
           );
         }
+
+        const totalTime = Date.now() - startTime;
+        logPartyDetailContext('info', 'PIN set successfully', {
+          requestId,
+          partyId,
+          hashTime,
+          updateTime: Date.now() - updateStart,
+          totalTime
+        });
 
         return NextResponse.json({
           id: party.id,
@@ -249,12 +486,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    logPartyDetailContext('warn', 'Invalid update request - no valid fields provided', {
+      requestId,
+      partyId,
+      providedFields: Object.keys(body)
+    });
+    
     return NextResponse.json(
       { error: 'Invalid update' },
       { status: 400 }
     );
   } catch (error) {
-    console.error('Update party error:', error);
+    const totalTime = Date.now() - startTime;
+    logPartyDetailContext('error', 'Unexpected error in party update', {
+      requestId,
+      partyId: (await params).partyId,
+      totalTime,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -263,18 +514,43 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  const requestId = Math.random().toString(36).substring(2, 10);
+  const startTime = Date.now();
+  
   try {
     const { partyId } = await params;
+    
+    logPartyDetailContext('info', 'Party deletion request received', {
+      requestId,
+      partyId
+    });
+    
     const supabase = createServerClient();
 
     // First, delete all photos from storage
     const partyFolder = getPartyFolder(partyId);
+    
+    logPartyDetailContext('info', 'Listing storage files for deletion', {
+      requestId,
+      partyId,
+      partyFolder,
+      bucket: STORAGE_BUCKET
+    });
+    
+    const listStart = Date.now();
     const { data: files, error: listError } = await supabase.storage
       .from(STORAGE_BUCKET)
       .list(partyFolder, { limit: 1000 });
 
     if (listError) {
-      console.error('Failed to list storage files:', listError);
+      logPartyDetailContext('error', 'Failed to list storage files for deletion', {
+        requestId,
+        partyId,
+        listTime: Date.now() - listStart,
+        bucket: STORAGE_BUCKET,
+        partyFolder,
+        error: listError.message
+      });
       return NextResponse.json(
         { 
           error: 'Failed to list storage files',
@@ -284,14 +560,35 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const fileCount = files?.length || 0;
+    let storageRemoveTime = 0;
+    
+    logPartyDetailContext('info', 'Storage files listed, proceeding with deletion', {
+      requestId,
+      partyId,
+      listTime: Date.now() - listStart,
+      fileCount
+    });
+
     if (files && files.length > 0) {
       const filePaths = files.map(f => `${partyFolder}/${f.name}`);
+      
+      const removeStart = Date.now();
       const { error: removeError } = await supabase.storage
         .from(STORAGE_BUCKET)
         .remove(filePaths);
 
+      storageRemoveTime = Date.now() - removeStart;
+
       if (removeError) {
-        console.error('Failed to remove storage files:', removeError);
+        logPartyDetailContext('error', 'Failed to remove storage files', {
+          requestId,
+          partyId,
+          removeTime: storageRemoveTime,
+          bucket: STORAGE_BUCKET,
+          fileCount: filePaths.length,
+          error: removeError.message
+        });
         return NextResponse.json(
           { 
             error: 'Failed to remove storage files',
@@ -300,36 +597,104 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
           { status: 500 }
         );
       }
+
+      logPartyDetailContext('info', 'Storage files removed successfully', {
+        requestId,
+        partyId,
+        removeTime: storageRemoveTime,
+        filesRemoved: filePaths.length
+      });
     }
 
     // Delete photos records (cascade will handle this, but be explicit)
-    await supabase
+    const photoDeleteStart = Date.now();
+    const { error: photoDeleteError } = await supabase
       .from('photos')
       .delete()
       .eq('party_id', partyId);
 
+    if (photoDeleteError) {
+      logPartyDetailContext('warn', 'Failed to delete photo records', {
+        requestId,
+        partyId,
+        photoDeleteTime: Date.now() - photoDeleteStart,
+        error: photoDeleteError.message
+      });
+    } else {
+      logPartyDetailContext('info', 'Photo records deleted', {
+        requestId,
+        partyId,
+        photoDeleteTime: Date.now() - photoDeleteStart
+      });
+    }
+
     // Delete uploaders
-    await supabase
+    const uploaderDeleteStart = Date.now();
+    const { error: uploaderDeleteError } = await supabase
       .from('uploaders')
       .delete()
       .eq('party_id', partyId);
 
+    if (uploaderDeleteError) {
+      logPartyDetailContext('warn', 'Failed to delete uploader records', {
+        requestId,
+        partyId,
+        uploaderDeleteTime: Date.now() - uploaderDeleteStart,
+        error: uploaderDeleteError.message
+      });
+    } else {
+      logPartyDetailContext('info', 'Uploader records deleted', {
+        requestId,
+        partyId,
+        uploaderDeleteTime: Date.now() - uploaderDeleteStart
+      });
+    }
+
     // Delete the party
+    const partyDeleteStart = Date.now();
     const { error } = await supabase
       .from('parties')
       .delete()
       .eq('id', partyId);
 
     if (error) {
+      logPartyDetailContext('error', 'Failed to delete party record', {
+        requestId,
+        partyId,
+        partyDeleteTime: Date.now() - partyDeleteStart,
+        error: error.message,
+        errorCode: error.code
+      });
       return NextResponse.json(
         { error: 'Failed to delete party' },
         { status: 500 }
       );
     }
 
+    const totalTime = Date.now() - startTime;
+    logPartyDetailContext('info', 'Party deletion completed successfully', {
+      requestId,
+      partyId,
+      fileCount,
+      storageListTime: Date.now() - listStart,
+      storageRemoveTime,
+      photoDeleteTime: Date.now() - photoDeleteStart,
+      uploaderDeleteTime: Date.now() - uploaderDeleteStart,
+      partyDeleteTime: Date.now() - partyDeleteStart,
+      totalTime
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Delete party error:', error);
+    const totalTime = Date.now() - startTime;
+    logPartyDetailContext('error', 'Unexpected error in party deletion', {
+      requestId,
+      partyId: (await params).partyId,
+      totalTime,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

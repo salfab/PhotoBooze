@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 
+function logStatsContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
+  const timestamp = new Date().toISOString();
+  const logData = {
+    timestamp,
+    level: level.toUpperCase(),
+    service: 'api.parties.stats',
+    message,
+    ...context
+  };
+  console.log(JSON.stringify(logData));
+}
+
 interface UploaderStats {
   id: string;
   display_name: string;
@@ -15,39 +27,80 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ partyId: string }> }
 ) {
-  const { partyId } = await params;
-  const supabase = createServerClient();
+  const requestId = Math.random().toString(36).substring(2, 10);
+  const startTime = Date.now();
+  
+  try {
+    const { partyId } = await params;
+    
+    logStatsContext('info', 'Party stats request received', {
+      requestId,
+      partyId
+    });
+    
+    const supabase = createServerClient();
 
-  // Get all photos with their uploaders
-  const { data: photos, error: photosError } = await supabase
-    .from('photos')
-    .select(`
-      id,
-      created_at,
-      comment,
-      uploader_id,
-      uploader:uploaders(id, display_name)
-    `)
-    .eq('party_id', partyId)
-    .order('created_at', { ascending: true });
+    // Get all photos with their uploaders
+    const photosQueryStart = Date.now();
+    const { data: photos, error: photosError } = await supabase
+      .from('photos')
+      .select(`
+        id,
+        created_at,
+        comment,
+        uploader_id,
+        uploader:uploaders(id, display_name)
+      `)
+      .eq('party_id', partyId)
+      .order('created_at', { ascending: true });
 
-  if (photosError) {
-    return NextResponse.json({ error: photosError.message }, { status: 500 });
-  }
+    if (photosError) {
+      logStatsContext('error', 'Failed to fetch photos for stats', {
+        requestId,
+        partyId,
+        photosQueryTime: Date.now() - photosQueryStart,
+        error: photosError.message,
+        errorCode: photosError.code
+      });
+      return NextResponse.json({ error: photosError.message }, { status: 500 });
+    }
 
-  // Get all uploaders for this party
-  const { data: uploaders, error: uploadersError } = await supabase
-    .from('uploaders')
-    .select('id, display_name, created_at')
-    .eq('party_id', partyId)
-    .order('created_at', { ascending: true });
+    logStatsContext('info', 'Photos fetched, getting uploaders', {
+      requestId,
+      partyId,
+      photoCount: photos?.length || 0,
+      photosQueryTime: Date.now() - photosQueryStart
+    });
 
-  if (uploadersError) {
-    return NextResponse.json({ error: uploadersError.message }, { status: 500 });
-  }
+    // Get all uploaders for this party
+    const uploadersQueryStart = Date.now();
+    const { data: uploaders, error: uploadersError } = await supabase
+      .from('uploaders')
+      .select('id, display_name, created_at')
+      .eq('party_id', partyId)
+      .order('created_at', { ascending: true });
 
-  // Build stats per uploader
-  const uploaderStatsMap = new Map<string, UploaderStats>();
+    if (uploadersError) {
+      logStatsContext('error', 'Failed to fetch uploaders for stats', {
+        requestId,
+        partyId,
+        uploadersQueryTime: Date.now() - uploadersQueryStart,
+        error: uploadersError.message,
+        errorCode: uploadersError.code
+      });
+      return NextResponse.json({ error: uploadersError.message }, { status: 500 });
+    }
+
+    logStatsContext('info', 'Uploaders fetched, building stats', {
+      requestId,
+      partyId,
+      uploaderCount: uploaders?.length || 0,
+      uploadersQueryTime: Date.now() - uploadersQueryStart
+    });
+
+    // Build stats per uploader
+    const statsProcessingStart = Date.now();
+    const uploaderStatsMap = new Map<string, UploaderStats>();
 
   // Initialize all uploaders (even those with 0 photos)
   for (const uploader of uploaders || []) {
@@ -230,6 +283,22 @@ export async function GET(
       : undefined,
   });
 
+  const statsProcessingTime = Date.now() - statsProcessingStart;
+  const totalTime = Date.now() - startTime;
+  
+  logStatsContext('info', 'Party stats completed successfully', {
+    requestId,
+    partyId,
+    totalPhotos: photos?.length || 0,
+    totalUploaders: uploaders?.length || 0,
+    totalComments: photos?.filter(p => p.comment).length || 0,
+    trophiesGenerated: trophies.length,
+    photosQueryTime: Date.now() - photosQueryStart,
+    uploadersQueryTime: Date.now() - uploadersQueryStart,
+    statsProcessingTime,
+    totalTime
+  });
+
   return NextResponse.json({
     trophies,
     summary: {
@@ -238,4 +307,19 @@ export async function GET(
       totalComments: photos?.filter(p => p.comment).length || 0,
     },
   });
+  } catch (error) {
+    const totalTime = Date.now() - startTime;
+    logStatsContext('error', 'Unexpected error in party stats', {
+      requestId,
+      partyId: (await params).partyId,
+      totalTime,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 }
