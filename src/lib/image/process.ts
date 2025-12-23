@@ -8,9 +8,9 @@
 const TV_MAX_WIDTH = 1920;
 const TV_MAX_HEIGHT = 1080;
 const TV_QUALITY = 0.8;
-const JPEG_QUALITY = 0.95;
+const JPEG_QUALITY = 0.98;
 const ORIGINAL_MAX_SIZE = 4096; // Max dimension for original (4K)
-const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB limit for Vercel
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 4MB limit for Vercel
 
 /**
  * Check if a file is a HEIC/HEIF image.
