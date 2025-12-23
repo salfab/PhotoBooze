@@ -37,10 +37,19 @@ export async function POST(request: NextRequest) {
   const requestId = uuidv4().substring(0, 8); // Short request ID for tracking
   const startTime = Date.now();
   
+  // Capture request size details for 413 debugging
+  const contentLengthHeader = request.headers.get('content-length');
+  const totalRequestSizeBytes = contentLengthHeader ? parseInt(contentLengthHeader) : null;
+  
   logWithContext('info', 'Upload request started', {
     requestId,
     userAgent: request.headers.get('user-agent'),
-    contentLength: request.headers.get('content-length'),
+    contentLength: contentLengthHeader,
+    totalRequestSize: totalRequestSizeBytes ? formatBytes(totalRequestSizeBytes) : 'unknown',
+    headers: {
+      'content-type': request.headers.get('content-type'),
+      'content-encoding': request.headers.get('content-encoding'),
+    }
   });
 
   try {
@@ -75,16 +84,36 @@ export async function POST(request: NextRequest) {
     const comment = formData.get('comment') as string | null;
     const useSameForTv = formData.get('useSameForTv') as string | null; // New flag from client
 
-    logWithContext('info', 'Form data parsed', {
+    // Calculate FormData overhead for 413 debugging
+    const originalFileBytes = originalFile?.size || 0;
+    const tvFileBytes = tvFile?.size || 0;
+    const totalFileBytes = originalFileBytes + tvFileBytes;
+    const formDataOverhead = totalRequestSizeBytes ? totalRequestSizeBytes - totalFileBytes : 0;
+    const overheadPercentage = totalRequestSizeBytes && totalFileBytes > 0 
+      ? ((formDataOverhead / totalRequestSizeBytes) * 100).toFixed(1)
+      : 'unknown';
+
+    logWithContext('info', 'Form data parsed with size analysis', {
       requestId,
       partyId,
       parseTime: Date.now() - parseStartTime,
+      // File sizes
       originalSize: originalFile?.size ? formatBytes(originalFile.size) : 'missing',
       tvSize: tvFile?.size ? formatBytes(tvFile.size) : 'missing',
+      totalFileSize: formatBytes(totalFileBytes),
+      // Request overhead analysis
+      totalRequestSize: totalRequestSizeBytes ? formatBytes(totalRequestSizeBytes) : 'unknown',
+      formDataOverhead: totalRequestSizeBytes ? formatBytes(formDataOverhead) : 'unknown',
+      overheadPercentage: `${overheadPercentage}%`,
+      // Form fields
       originalMime,
       originalExt,
       hasComment: !!comment,
-      useSameForTv: useSameForTv === 'true'
+      commentLength: comment?.length || 0,
+      useSameForTv: useSameForTv === 'true',
+      // Potential 413 risk assessment
+      approaching4MB: totalRequestSizeBytes ? totalRequestSizeBytes > (3.8 * 1024 * 1024) : false,
+      exceeds4MB: totalRequestSizeBytes ? totalRequestSizeBytes > (4 * 1024 * 1024) : false
     });
 
     if (!originalFile) {
@@ -98,9 +127,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing TV file' }, { status: 400 });
     }
 
-    // Step 3: File validation
+    // Step 3: File validation with 413 risk assessment
     const filesToValidate = [originalFile];
     if (tvFile) filesToValidate.push(tvFile);
+    
+    // Check for potential 413 errors before processing
+    if (totalRequestSizeBytes && totalRequestSizeBytes > (4 * 1024 * 1024)) {
+      logWithContext('warn', 'Request size exceeds 4MB - potential 413 error risk', {
+        requestId,
+        partyId,
+        totalRequestSize: formatBytes(totalRequestSizeBytes),
+        totalFileSize: formatBytes(totalFileBytes),
+        formDataOverhead: formatBytes(formDataOverhead),
+        warning: 'This request may fail with 413 on Vercel'
+      });
+    }
     
     for (const file of filesToValidate) {
       if (file.size > MAX_FILE_SIZE) {

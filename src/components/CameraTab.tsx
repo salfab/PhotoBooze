@@ -101,15 +101,28 @@ export default function CameraTab({
     processed: ProcessedImage,
     comment: string
   ): Promise<UploadedPhoto | null> => {
-    // Calculate sizes for error reporting
+    // Calculate sizes for detailed error reporting
+    const inputFileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
     const originalSizeMB = (processed.original.size / (1024 * 1024)).toFixed(2);
+    const originalSizeKB = Math.round(processed.original.size / 1024);
     const tvSizeMB = processed.tv ? (processed.tv.size / (1024 * 1024)).toFixed(2) : 'N/A';
-    const totalSizeMB = ((processed.original.size + (processed.tv?.size || 0)) / (1024 * 1024)).toFixed(2);
+    const tvSizeKB = processed.tv ? Math.round(processed.tv.size / 1024) : 0;
+    const totalFilesMB = ((processed.original.size + (processed.tv?.size || 0)) / (1024 * 1024)).toFixed(2);
+    const totalFilesKB = Math.round((processed.original.size + (processed.tv?.size || 0)) / 1024);
+    
+    // Estimate FormData overhead (boundaries, headers, field names)
+    const commentBytes = comment ? comment.length : 0;
+    const estimatedOverheadBytes = 500 + commentBytes; // Conservative estimate
+    const estimatedTotalKB = totalFilesKB + Math.round(estimatedOverheadBytes / 1024);
     
     console.log('🚀 Uploading photo:', {
-      original: `${originalSizeMB}MB`,
-      tv: tvSizeMB,
+      inputFile: `${inputFileSizeMB}MB`,
+      processedOriginal: `${originalSizeMB}MB (${originalSizeKB}KB)`,
+      processedTV: processed.tv ? `${tvSizeMB}MB (${tvSizeKB}KB)` : 'using same as original',
+      totalFiles: `${totalFilesMB}MB (${totalFilesKB}KB)`,
+      estimatedFormData: `~${estimatedTotalKB}KB`,
       useSameForTv: processed.useSameForTv,
+      compressionRatio: ((file.size / processed.original.size) * 100).toFixed(1) + '%',
       analysis: processed.analysis
     });
     
@@ -138,10 +151,20 @@ export default function CameraTab({
       if (!response.ok) {
         // Special handling for 413 Payload Too Large
         if (response.status === 413) {
+          console.error('❌ 413 Upload failed - sizes:', {
+            inputFile: `${inputFileSizeMB}MB`,
+            processedOriginal: `${originalSizeMB}MB (${originalSizeKB}KB)`,
+            processedTV: processed.tv ? `${tvSizeMB}MB (${tvSizeKB}KB)` : 'N/A',
+            totalFiles: `${totalFilesMB}MB (${totalFilesKB}KB)`,
+            estimatedFormData: `~${estimatedTotalKB}KB`
+          });
+          
           throw new Error(
-            `Image too large to upload. ` +
-            `Original: ${originalSizeMB}MB, TV: ${tvSizeMB}MB, Total: ${totalSizeMB}MB. ` +
-            `The server limit may be lower than expected. Try a smaller image.`
+            `Upload failed: Request too large (413). ` +
+            `Input: ${inputFileSizeMB}MB → Processed: ${originalSizeMB}MB original` +
+            (processed.tv && !processed.useSameForTv ? ` + ${tvSizeMB}MB TV` : '') +
+            ` = ${totalFilesMB}MB total files (est. ${estimatedTotalKB}KB with FormData overhead). ` +
+            `Server limit appears to be ~4.3MB. Try a lower resolution image.`
           );
         }
         
