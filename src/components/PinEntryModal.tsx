@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, TextField } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 
@@ -70,7 +70,7 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (mode === 'remove') {
       const currentPinValue = currentPin.join('');
       if (currentPinValue.length === 6) {
@@ -82,7 +82,7 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
         onSubmit(pinValue);
       }
     }
-  };
+  }, [mode, currentPin, pin, onSubmit]);
 
   const handlePaste = (e: React.ClipboardEvent, isCurrentPin: boolean = false) => {
     e.preventDefault();
@@ -130,6 +130,30 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
   const isComplete = mode === 'remove' 
     ? currentPin.every(d => d !== '')
     : pin.every(d => d !== '');
+
+  // Auto-submit when PIN is complete
+  useEffect(() => {
+    if (isComplete && open) {
+      // Small delay for better UX - user can see the last digit before submit
+      const timer = setTimeout(() => {
+        handleSubmit();
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isComplete, open, handleSubmit]);
+
+  // Auto-submit when PIN is complete
+  useEffect(() => {
+    if (isComplete && open) {
+      // Small delay for better UX - user can see the last digit before submit
+      const timer = setTimeout(() => {
+        handleSubmit();
+      }, 150);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isComplete, open]);
 
   return (
     <Dialog 
