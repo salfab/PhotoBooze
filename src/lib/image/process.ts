@@ -8,9 +8,9 @@
 const TV_MAX_WIDTH = 1920;
 const TV_MAX_HEIGHT = 1080;
 const TV_QUALITY = 0.8;
-const JPEG_QUALITY = 0.85;
-const ORIGINAL_MAX_SIZE = 3072; // Max dimension for original (3K to ensure <4MB)
-const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB limit for Vercel
+const JPEG_QUALITY = 0.90; // Increased from 0.85 for better quality
+const ORIGINAL_MAX_SIZE = 4096; // Increased from 3072 to 4096 (4K quality)
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // Increased from 4MB to 20MB (Supabase limit with margin)
 
 /**
  * Check if a file is a HEIC/HEIF image.
@@ -394,28 +394,9 @@ export async function processImage(file: File): Promise<ProcessedImage> {
     storageSaved: useSameForTv && tvAnalysis.expectedSavings > 0 ? formatFileSize(tvAnalysis.expectedSavings) : '0B'
   });
 
-  // Final safety check - if still over limit, apply emergency compression
+  // Final safety check - if still over limit, throw error (no emergency compression)
   if (result.original.size > MAX_FILE_SIZE) {
-    console.warn(`⚠️ Final image still too large (${formatFileSize(result.original.size)}), applying emergency compression...`);
-    
-    try {
-      // Emergency compression - very aggressive
-      result.original = await resizeImage(result.original, 2048, 2048, 0.7);
-      result.originalMime = 'image/jpeg';
-      result.originalExt = 'jpg';
-      result.analysis.originalProcessed = true;
-      
-      console.log(`🚑 Emergency compression applied: ${formatFileSize(result.original.size)}`);
-      
-      // If STILL too large, try even more aggressive
-      if (result.original.size > MAX_FILE_SIZE) {
-        result.original = await resizeImage(result.original, 1920, 1920, 0.6);
-        console.log(`🚨 Ultra-aggressive compression: ${formatFileSize(result.original.size)}`);
-      }
-    } catch (err) {
-      console.error('Emergency compression failed:', err);
-      throw new Error(`Image too large after processing (${formatFileSize(result.original.size)}). Please try a smaller image.`);
-    }
+    throw new Error(`Image too large after processing (${formatFileSize(result.original.size)}). Maximum size is ${formatFileSize(MAX_FILE_SIZE)}. Please try a smaller image.`);
   }
 
   return result;

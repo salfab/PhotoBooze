@@ -21,6 +21,7 @@ import {
   Timer as TimerIcon,
 } from '@mui/icons-material';
 import { processImage, type ProcessedImage } from '@/lib/image';
+import { createClient } from '@/lib/supabase/client';
 import styles from '@/app/upload/[partyId]/page.module.css';
 
 interface UploadedPhoto {
@@ -66,6 +67,7 @@ export default function CameraTab({
   const [showCamera, setShowCamera] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   // Detect if mobile device
   useEffect(() => {
@@ -101,87 +103,146 @@ export default function CameraTab({
     processed: ProcessedImage,
     comment: string
   ): Promise<UploadedPhoto | null> => {
-    // Calculate sizes for detailed error reporting
     const inputFileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
     const originalSizeMB = (processed.original.size / (1024 * 1024)).toFixed(2);
-    const originalSizeKB = Math.round(processed.original.size / 1024);
     const tvSizeMB = processed.tv ? (processed.tv.size / (1024 * 1024)).toFixed(2) : 'N/A';
-    const tvSizeKB = processed.tv ? Math.round(processed.tv.size / 1024) : 0;
-    const totalFilesMB = ((processed.original.size + (processed.tv?.size || 0)) / (1024 * 1024)).toFixed(2);
-    const totalFilesKB = Math.round((processed.original.size + (processed.tv?.size || 0)) / 1024);
     
-    // Estimate FormData overhead (boundaries, headers, field names)
-    const commentBytes = comment ? comment.length : 0;
-    const estimatedOverheadBytes = 500 + commentBytes; // Conservative estimate
-    const estimatedTotalKB = totalFilesKB + Math.round(estimatedOverheadBytes / 1024);
-    
-    console.log('🚀 Uploading photo:', {
+    console.log('🚀 Starting direct upload:', {
       inputFile: `${inputFileSizeMB}MB`,
-      processedOriginal: `${originalSizeMB}MB (${originalSizeKB}KB)`,
-      processedTV: processed.tv ? `${tvSizeMB}MB (${tvSizeKB}KB)` : 'using same as original',
-      totalFiles: `${totalFilesMB}MB (${totalFilesKB}KB)`,
-      estimatedFormData: `~${estimatedTotalKB}KB`,
+      processedOriginal: `${originalSizeMB}MB`,
+      processedTV: processed.tv ? `${tvSizeMB}MB` : 'using same as original',
       useSameForTv: processed.useSameForTv,
       compressionRatio: ((file.size / processed.original.size) * 100).toFixed(1) + '%',
       analysis: processed.analysis
     });
     
     try {
-      const formData = new FormData();
-      formData.append('original', new Blob([processed.original], { type: processed.originalMime }), `original.${processed.originalExt}`);
+      setUploadProgress(5);
       
-      // Only append TV file if it's different from original
-      if (!processed.useSameForTv && processed.tv) {
-        formData.append('tv', new Blob([processed.tv], { type: processed.tvMime }), 'tv.jpg');
-      }
-      
-      formData.append('originalMime', processed.originalMime);
-      formData.append('originalExt', processed.originalExt);
-      formData.append('useSameForTv', processed.useSameForTv.toString()); // New flag for server
-      
-      if (comment) {
-        formData.append('comment', comment);
-      }
-
-      const response = await fetch('/api/photos', {
+      // Step 1: Get signed upload URLs
+      const prepareResponse = await fetch('/api/photos/prepare-upload', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          originalExt: processed.originalExt,
+          createTvVersion: !processed.useSameForTv && !!processed.tv
+        })
       });
 
-      if (!response.ok) {
-        // Special handling for 413 Payload Too Large
-        if (response.status === 413) {
-          console.error('❌ 413 Upload failed - sizes:', {
-            inputFile: `${inputFileSizeMB}MB`,
-            processedOriginal: `${originalSizeMB}MB (${originalSizeKB}KB)`,
-            processedTV: processed.tv ? `${tvSizeMB}MB (${tvSizeKB}KB)` : 'N/A',
-            totalFiles: `${totalFilesMB}MB (${totalFilesKB}KB)`,
-            estimatedFormData: `~${estimatedTotalKB}KB`
-          });
-          
-          throw new Error(
-            `Upload failed: Request too large (413). ` +
-            `Input: ${inputFileSizeMB}MB → Processed: ${originalSizeMB}MB original` +
-            (processed.tv && !processed.useSameForTv ? ` + ${tvSizeMB}MB TV` : '') +
-            ` = ${totalFilesMB}MB total files (est. ${estimatedTotalKB}KB with FormData overhead). ` +
-            `Server limit appears to be ~4.3MB. Try a lower resolution image.`
-          );
-        }
-        
-        const data = await response.json();
-        throw new Error(data.error || 'Upload failed');
+      if (!prepareResponse.ok) {
+        const data = await prepareResponse.json();
+        throw new Error(data.error || 'Failed to prepare upload');
       }
 
-      const result = await response.json();
+      const uploadMeta = await prepareResponse.json();
+      console.log('✅ Upload URLs prepared:', uploadMeta.photoId);
+      
+      setUploadProgress(10);
+
+      // Step 2: Upload original to Supabase Storage using signed URL
+      console.log('📤 Uploading original...');
+      const originalUpload = await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const percentOriginal = Math.round((e.loaded / e.total) * 40); // 10-50%
+            setUploadProgress(10 + percentOriginal);
+          }
+        };
+        
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Original upload failed: ${xhr.status} ${xhr.statusText}`));
+          }
+        };
+        
+        xhr.onerror = () => reject(new Error('Network error uploading original'));
+        
+        xhr.open('PUT', uploadMeta.originalSignedUrl);
+        xhr.setRequestHeader('Content-Type', processed.originalMime);
+        xhr.send(processed.original);
+      });
+
+      console.log('✅ Original uploaded');
+      setUploadProgress(50);
+
+      // Step 3: Upload TV version (if separate)
+      if (!processed.useSameForTv && processed.tv && uploadMeta.tvSignedUrl) {
+        console.log('📤 Uploading TV version...');
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const percentTv = Math.round((e.loaded / e.total) * 30); // 50-80%
+              setUploadProgress(50 + percentTv);
+            }
+          };
+          
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              reject(new Error(`TV upload failed: ${xhr.status} ${xhr.statusText}`));
+            }
+          };
+          
+          xhr.onerror = () => reject(new Error('Network error uploading TV version'));
+          
+          xhr.open('PUT', uploadMeta.tvSignedUrl);
+          xhr.setRequestHeader('Content-Type', 'image/jpeg');
+          xhr.send(processed.tv);
+        });
+        
+        console.log('✅ TV version uploaded');
+      }
+      
+      setUploadProgress(80);
+
+      // Step 4: Create database record using Supabase client
+      console.log('💾 Creating database record...');
+      const supabase = createClient();
+      
+      const { data: photo, error: dbError } = await supabase
+        .from('photos')
+        .insert({
+          id: uploadMeta.photoId,
+          party_id: uploadMeta.partyId,
+          uploader_id: uploadMeta.uploaderId,
+          original_path: uploadMeta.originalPath,
+          tv_path: uploadMeta.tvPath || uploadMeta.originalPath, // Use original if no separate TV
+          original_mime: processed.originalMime,
+          tv_mime: 'image/jpeg',
+          original_bytes: processed.original.size,
+          tv_bytes: processed.tv?.size || processed.original.size,
+          comment: comment || null,
+        })
+        .select('id, created_at')
+        .single();
+
+      if (dbError || !photo) {
+        console.error('❌ Database insert failed:', dbError);
+        throw new Error(dbError?.message || 'Failed to save photo record');
+      }
+
+      console.log('✅ Upload complete:', photo.id);
+      setUploadProgress(100);
 
       return {
-        id: result.id,
+        id: photo.id,
         name: file.name,
         size: file.size,
         comment,
       };
     } catch (err) {
+      console.error('❌ Upload failed:', err);
       throw err;
+    } finally {
+      // Reset progress after a short delay
+      setTimeout(() => setUploadProgress(0), 500);
     }
   }, []);
 
@@ -437,7 +498,40 @@ export default function CameraTab({
               disabled={isUploading}
               className={styles.sendButton}
             >
-              {isUploading ? <CircularProgress size={24} /> : <SendIcon />}
+              {isUploading ? (
+                <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                  <CircularProgress 
+                    variant={uploadProgress > 0 ? "determinate" : "indeterminate"}
+                    value={uploadProgress}
+                    size={24}
+                  />
+                  {uploadProgress > 0 && (
+                    <Box
+                      sx={{
+                        top: 0,
+                        left: 0,
+                        bottom: 0,
+                        right: 0,
+                        position: 'absolute',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        component="div"
+                        color="text.secondary"
+                        sx={{ fontSize: '8px' }}
+                      >
+                        {`${Math.round(uploadProgress)}%`}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              ) : (
+                <SendIcon />
+              )}
             </IconButton>
           </Box>
         </Card>
