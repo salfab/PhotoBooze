@@ -8,9 +8,23 @@
 const TV_MAX_WIDTH = 1920;
 const TV_MAX_HEIGHT = 1080;
 const TV_QUALITY = 0.8;
-const JPEG_QUALITY = 0.90; // Increased from 0.85 for better quality
-const ORIGINAL_MAX_SIZE = 4096; // Increased from 3072 to 4096 (4K quality)
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // Increased from 4MB to 20MB (Supabase limit with margin)
+const JPEG_QUALITY = 0.90; // High quality for first attempt
+const ORIGINAL_MAX_SIZE = 4096; // 4K quality max
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit (storage optimization)
+
+// Multi-level compression quality settings
+const QUALITY_LEVELS = [
+  { quality: 0.90, label: 'High quality' },
+  { quality: 0.85, label: 'Good quality' },
+  { quality: 0.80, label: 'Standard quality' }
+];
+
+// Resize fallback dimensions
+const RESIZE_LEVELS = [
+  { size: 4096, quality: 0.90, label: '4K' },
+  { size: 3072, quality: 0.85, label: '3K' },
+  { size: 2048, quality: 0.80, label: '2K' }
+];
 
 /**
  * Check if a file is a HEIC/HEIF image.
@@ -253,6 +267,81 @@ async function tryFormatOptimization(blob: Blob, targetQuality: number): Promise
 }
 
 /**
+ * Try multiple quality levels for compression without resizing.
+ * Returns the best quality that fits under MAX_FILE_SIZE.
+ */
+async function tryMultiLevelCompression(blob: Blob): Promise<{
+  success: boolean;
+  optimizedBlob: Blob | null;
+  qualityUsed?: number;
+  label?: string;
+  sizeDifference?: number;
+}> {
+  console.log('🔄 Trying multi-level compression...');
+  
+  for (const level of QUALITY_LEVELS) {
+    try {
+      const result = await tryFormatOptimization(blob, level.quality);
+      
+      console.log(`  • ${level.label} (${level.quality}): ${formatFileSize(result.optimizedBlob.size)}`);
+      
+      if (result.optimizedBlob.size <= MAX_FILE_SIZE) {
+        console.log(`✅ Success with ${level.label}!`);
+        return {
+          success: true,
+          optimizedBlob: result.optimizedBlob,
+          qualityUsed: level.quality,
+          label: level.label,
+          sizeDifference: result.sizeDifference
+        };
+      }
+    } catch (err) {
+      console.warn(`  ⚠️ ${level.label} failed:`, err);
+    }
+  }
+  
+  console.log('❌ All compression levels failed');
+  return { success: false, optimizedBlob: null };
+}
+
+/**
+ * Try multiple resize levels if compression alone isn't enough.
+ */
+async function tryMultiLevelResize(blob: Blob): Promise<{
+  success: boolean;
+  resizedBlob: Blob | null;
+  sizeUsed?: number;
+  qualityUsed?: number;
+  label?: string;
+}> {
+  console.log('📏 Trying multi-level resize...');
+  
+  for (const level of RESIZE_LEVELS) {
+    try {
+      const resized = await resizeImage(blob, level.size, level.size, level.quality);
+      
+      console.log(`  • ${level.label} (${level.size}px @ ${level.quality}): ${formatFileSize(resized.size)}`);
+      
+      if (resized.size <= MAX_FILE_SIZE) {
+        console.log(`✅ Success with ${level.label}!`);
+        return {
+          success: true,
+          resizedBlob: resized,
+          sizeUsed: level.size,
+          qualityUsed: level.quality,
+          label: level.label
+        };
+      }
+    } catch (err) {
+      console.warn(`  ⚠️ ${level.label} failed:`, err);
+    }
+  }
+  
+  console.log('❌ All resize levels failed');
+  return { success: false, resizedBlob: null };
+}
+
+/**
  * Process an image file for upload with smart optimization.
  * Returns both original (converted if HEIC) and TV-sized versions, or indicates if same file should be used.
  */
@@ -313,50 +402,62 @@ export async function processImage(file: File): Promise<ProcessedImage> {
   
   let originalProcessed = false;
   let formatOptimization: { sizeDifference: number; compressionRatio: number } | undefined;
+  let compressionStrategy = 'none';
   
-  // Step 2: Check if original needs processing
-  let needsResizing = await shouldResizeOriginal(originalBlob);
-  
-  if (needsResizing) {
-    console.log('⚠️ Image needs processing (too large)');
+  // Step 2: Check if image is too large
+  if (originalBlob.size > MAX_FILE_SIZE) {
+    console.log(`⚠️ Image too large: ${formatFileSize(originalBlob.size)} > ${formatFileSize(MAX_FILE_SIZE)}`);
     
-    // Try format optimization first (avoid resizing if possible)
-    try {
-      const optimization = await tryFormatOptimization(originalBlob, JPEG_QUALITY);
+    // Strategy 1: Try multi-level compression without resizing (preserves original dimensions)
+    const compressionResult = await tryMultiLevelCompression(originalBlob);
+    
+    if (compressionResult.success && compressionResult.optimizedBlob) {
+      originalBlob = compressionResult.optimizedBlob;
+      originalMime = 'image/jpeg';
+      originalExt = 'jpg';
+      originalProcessed = true;
+      compressionStrategy = `compression-${compressionResult.label}`;
       formatOptimization = {
-        sizeDifference: optimization.sizeDifference,
-        compressionRatio: optimization.compressionRatio
+        sizeDifference: compressionResult.sizeDifference || 0,
+        compressionRatio: compressionResult.optimizedBlob.size / file.size
       };
+      console.log(`✅ Compression succeeded, kept original dimensions`);
+    } else {
+      // Strategy 2: Compression failed, try multi-level resize
+      console.log('⚠️ Compression insufficient, trying resize...');
+      const resizeResult = await tryMultiLevelResize(originalBlob);
       
-      console.log(`🗜️ Format optimization: ${formatFileSize(optimization.sizeDifference)} saved (${(optimization.compressionRatio * 100).toFixed(1)}% of original)`);
-      
-      // Check if compression alone solved the size issue
-      if (optimization.optimizedBlob.size <= MAX_FILE_SIZE) {
-        const img = await loadImage(optimization.optimizedBlob);
-        if (img.width <= ORIGINAL_MAX_SIZE && img.height <= ORIGINAL_MAX_SIZE) {
-          originalBlob = optimization.optimizedBlob;
-          originalMime = 'image/jpeg';
-          originalExt = 'jpg';
-          needsResizing = false;
-          originalProcessed = true;
-          console.log('✅ Format optimization sufficient, avoiding resize');
-        }
+      if (resizeResult.success && resizeResult.resizedBlob) {
+        originalBlob = resizeResult.resizedBlob;
+        originalMime = 'image/jpeg';
+        originalExt = 'jpg';
+        originalProcessed = true;
+        compressionStrategy = `resize-${resizeResult.label}`;
+        console.log(`✅ Resize succeeded with ${resizeResult.label}`);
+      } else {
+        // Strategy 3: Everything failed, throw error
+        throw new Error(
+          `Image too large after all optimization attempts (${formatFileSize(originalBlob.size)}). ` +
+          `Maximum size is ${formatFileSize(MAX_FILE_SIZE)}. Please try a smaller image.`
+        );
       }
-    } catch (err) {
-      console.warn('Format optimization failed, proceeding with resize:', err);
+    }
+  } else {
+    // Check if dimensions need adjustment (even if size is OK)
+    const img = await loadImage(originalBlob);
+    if (img.width > ORIGINAL_MAX_SIZE || img.height > ORIGINAL_MAX_SIZE) {
+      console.log(`📏 Dimensions too large (${img.width}x${img.height}), resizing to ${ORIGINAL_MAX_SIZE}px...`);
+      originalBlob = await resizeImage(originalBlob, ORIGINAL_MAX_SIZE, ORIGINAL_MAX_SIZE, JPEG_QUALITY);
+      originalMime = 'image/jpeg';
+      originalExt = 'jpg';
+      originalProcessed = true;
+      compressionStrategy = 'resize-dimensions';
+    } else {
+      console.log(`✅ Image size OK: ${formatFileSize(originalBlob.size)}`);
     }
   }
   
-  // Step 3: Resize only if format optimization wasn't enough
-  if (needsResizing) {
-    console.log('📏 Resizing required after format optimization');
-    originalBlob = await resizeImage(originalBlob, ORIGINAL_MAX_SIZE, ORIGINAL_MAX_SIZE, JPEG_QUALITY);
-    originalMime = 'image/jpeg';
-    originalExt = 'jpg';
-    originalProcessed = true;
-  }
-  
-  // Step 4: Analyze TV version benefit
+  // Step 3: Analyze TV version benefit
   console.log('📺 Analyzing TV version benefit...');
   const tvAnalysis = await analyzeTvVersionBenefit(originalBlob);
   
@@ -384,17 +485,19 @@ export async function processImage(file: File): Promise<ProcessedImage> {
     analysis: {
       originalProcessed,
       tvAnalysis,
-      formatOptimization
+      formatOptimization,
+      compressionStrategy
     }
   };
 
   console.log('🎉 Image processing complete:', {
+    strategy: compressionStrategy,
     original: formatFileSize(result.original.size),
     tv: tvBlob ? formatFileSize(tvBlob.size) : 'Using original',
     storageSaved: useSameForTv && tvAnalysis.expectedSavings > 0 ? formatFileSize(tvAnalysis.expectedSavings) : '0B'
   });
 
-  // Final safety check - if still over limit, throw error (no emergency compression)
+  // Final safety check (should not reach here with new logic, but just in case)
   if (result.original.size > MAX_FILE_SIZE) {
     throw new Error(`Image too large after processing (${formatFileSize(result.original.size)}). Maximum size is ${formatFileSize(MAX_FILE_SIZE)}. Please try a smaller image.`);
   }
