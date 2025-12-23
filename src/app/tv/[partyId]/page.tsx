@@ -197,6 +197,7 @@ export default function TvPage() {
         }
       } catch (err) {
         console.error('Failed to load party data:', err);
+        setError('Party not found or unable to load party information. Please check the link and try again.');
       }
     }
 

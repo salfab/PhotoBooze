@@ -74,6 +74,12 @@ export default function UploadPage() {
             if (partyRes.ok) {
               const party = await partyRes.json();
               setPartyName(party.name || null);
+            } else if (partyRes.status === 404) {
+              setError('Party not found. It may have been deleted or the link is incorrect.');
+              setErrorDialogOpen(true);
+            } else {
+              setError('Unable to load party information.');
+              setErrorDialogOpen(true);
             }
           } else {
             router.push('/');
@@ -82,7 +88,8 @@ export default function UploadPage() {
           router.push('/');
         }
       } catch {
-        router.push('/');
+        setError('Unable to connect to the server. Please check your internet connection.');
+        setErrorDialogOpen(true);
       }
     }
     getSessionInfo();

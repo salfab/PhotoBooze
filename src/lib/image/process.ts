@@ -10,7 +10,7 @@ const TV_MAX_HEIGHT = 1080;
 const TV_QUALITY = 0.8;
 const JPEG_QUALITY = 0.90; // High quality for first attempt
 const ORIGINAL_MAX_SIZE = 4096; // 4K quality max
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit (storage optimization)
+const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB limit (storage optimization)
 
 // Multi-level compression quality settings
 const QUALITY_LEVELS = [
