@@ -6,6 +6,8 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { verifyPin } from '@/lib/auth/tokens';
+import type { PartyWithOptionalPin } from '@/types/database';
+import { getAdminPinHash, requiresPin } from '@/types/database';
 
 function logGetTokenContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
   const timestamp = new Date().toISOString();
@@ -35,49 +37,50 @@ export async function POST(
       partyId
     });
     
-    // Get the party and its existing join token
+    // Get the party - handle environments with or without admin PIN support
     const partyFetchStart = Date.now();
-    const { data: party, error: fetchError } = await supabase
+    let party: PartyWithOptionalPin | null = null;
+    let fetchError: any = null;
+
+    // Try to get party with admin PIN field
+    const { data: fullParty, error: fullError } = await supabase
       .from('parties')
       .select('id, admin_pin_hash')
       .eq('id', partyId)
       .single();
 
-    if (fetchError) {
+    if (fullError && (fullError.message?.includes('admin_pin_hash') || fullError.code === '42703')) {
+      logGetTokenContext('warn', 'Admin PIN column not found - PIN protection disabled', {
+        requestId,
+        partyId
+      });
+      
+      // Fallback to basic party query
+      const { data: basicParty, error: basicError } = await supabase
+        .from('parties')
+        .select('id')
+        .eq('id', partyId)
+        .single();
+      
+      party = basicParty as PartyWithOptionalPin | null;
+      fetchError = basicError;
+    } else {
+      party = fullParty as PartyWithOptionalPin | null;
+      fetchError = fullError;
+    }
+
+    if (fetchError || !party) {
       logGetTokenContext('error', 'Failed to fetch party for token retrieval', {
         requestId,
         partyId,
         fetchTime: Date.now() - partyFetchStart,
-        error: fetchError.message,
-        errorCode: fetchError.code
+        error: fetchError?.message,
+        errorCode: fetchError?.code
       });
-      
-      // Handle case where admin_pin_hash column doesn't exist
-      if (fetchError.message?.includes('admin_pin_hash') || fetchError.code === '42703') {
-        logGetTokenContext('warn', 'Admin PIN column not found - feature disabled', {
-          requestId,
-          partyId
-        });
-        // Retry without the admin_pin_hash column
-        const { data: basicParty, error: basicError } = await supabase
-          .from('parties')
-          .select('id')
-          .eq('id', partyId)
-          .single();
-        
-        if (basicError) {
-          return NextResponse.json(
-            { error: 'Failed to fetch party' },
-            { status: 500 }
-          );
-        }
-        // Continue without PIN protection
-      } else {
-        return NextResponse.json(
-          { error: 'Failed to fetch party' },
-          { status: 500 }
-        );
-      }
+      return NextResponse.json(
+        { error: 'Failed to fetch party' },
+        { status: 500 }
+      );
     }
 
     // Get the join token for this party
@@ -105,12 +108,12 @@ export async function POST(
     logGetTokenContext('info', 'Party fetched, checking PIN requirements', {
       requestId,
       partyId,
-      requiresPin: !!((party as any)?.admin_pin_hash),
+      requiresPin: requiresPin(party),
       fetchTime: Date.now() - partyFetchStart
     });
 
-    // If party has a PIN set, verify it (gracefully handle if column doesn't exist)
-    const adminPinHash = (party as any)?.admin_pin_hash;
+    // Check if party requires PIN authentication
+    const adminPinHash = getAdminPinHash(party);
     if (adminPinHash) {
       let body;
       try {
@@ -157,7 +160,7 @@ export async function POST(
     logGetTokenContext('info', 'Join token retrieved successfully', {
       requestId,
       partyId,
-      requiresPin: !!((party as any)?.admin_pin_hash),
+      requiresPin: requiresPin(party),
       fetchTime: Date.now() - partyFetchStart,
       totalTime
     });

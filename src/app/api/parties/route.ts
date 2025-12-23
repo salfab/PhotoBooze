@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { generateJoinToken, hashJoinToken } from '@/lib/auth/tokens';
 import { generateUniquePartyName } from '@/lib/party-names';
+import type { PartyWithOptionalPin } from '@/types/database';
+import { requiresPin } from '@/types/database';
 
 // Enhanced logging utility
 function logPartiesContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, any>) {
@@ -33,29 +35,37 @@ export async function GET() {
     
     const supabase = createServerClient();
     
-    // Get all parties - try with admin_pin_hash, fallback without if column doesn't exist
+    // Get all parties - use a type-safe query that may or may not include admin_pin_hash
     const partiesQueryStart = Date.now();
-    let { data: parties, error } = await supabase
+    let parties: PartyWithOptionalPin[] | null = null;
+    let error: any = null;
+
+    // Try with admin_pin_hash first
+    const { data: fullParties, error: fullError } = await supabase
       .from('parties')
       .select('id, name, status, created_at, admin_pin_hash')
       .order('created_at', { ascending: false });
 
-    // Fallback query if admin_pin_hash column doesn't exist
-    if (error && (error.message?.includes('admin_pin_hash') || error.code === '42703')) {
-      logPartiesContext('warn', 'Admin PIN column not found - feature disabled', {
+    if (fullError && (fullError.message?.includes('admin_pin_hash') || fullError.code === '42703')) {
+      logPartiesContext('warn', 'Admin PIN column not found - querying without PIN support', {
         requestId,
         queryTime: Date.now() - partiesQueryStart,
-        originalError: error.message
+        originalError: fullError.message
       });
       
-      const fallbackResult = await supabase
+      // Fallback to basic query without admin_pin_hash
+      const { data: basicParties, error: basicError } = await supabase
         .from('parties')
         .select('id, name, status, created_at')
         .order('created_at', { ascending: false });
       
-      // Cast the result to include admin_pin_hash as undefined to maintain type compatibility
-      parties = fallbackResult.data?.map(party => ({ ...party, admin_pin_hash: null })) || null;
-      error = fallbackResult.error;
+      // Map to PartyWithOptionalPin type (admin_pin_hash will be undefined)
+      parties = basicParties as PartyWithOptionalPin[] | null;
+      error = basicError;
+    } else {
+      // Successfully got parties with admin_pin_hash
+      parties = fullParties as PartyWithOptionalPin[] | null;
+      error = fullError;
     }
 
     if (error) {
@@ -108,7 +118,7 @@ export async function GET() {
           createdAt: party.created_at,
           photoCount: photoCount ?? 0,
           uploaderCount: uploaderCount ?? 0,
-          requiresPin: !!((party as any)?.admin_pin_hash),
+          requiresPin: requiresPin(party),
         };
       })
     );
