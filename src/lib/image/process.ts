@@ -379,10 +379,12 @@ export async function processImage(file: File): Promise<ProcessedImage> {
   // Log original file info
   const originalDims = await getImageDimensions(file);
   const originalFileSize = file.size;
+  const originalFileExt = file.name.split('.').pop()?.toLowerCase() || 'unknown';
   console.log(`📸 ORIGINAL FILE: ${file.name}`);
   console.log(`   Resolution: ${originalDims.width}x${originalDims.height}`);
   console.log(`   Size: ${formatFileSize(file.size)}`);
   console.log(`   Type: ${file.type}`);
+  console.log(`   Format: .${originalFileExt}`);
   
   let originalBlob: Blob;
   let originalMime: string;
