@@ -82,6 +82,14 @@ function loadImage(blob: Blob): Promise<HTMLImageElement> {
 }
 
 /**
+ * Get dimensions of an image blob.
+ */
+async function getImageDimensions(blob: Blob): Promise<{ width: number; height: number }> {
+  const img = await loadImage(blob);
+  return { width: img.width, height: img.height };
+}
+
+/**
  * Resize an image to fit within specified dimensions.
  * Returns JPEG blob.
  */
@@ -368,7 +376,12 @@ export interface ProcessedImage {
 }
 
 export async function processImage(file: File): Promise<ProcessedImage> {
-  console.log(`🖼️ Processing image: ${file.name} (${formatFileSize(file.size)})`);
+  // Log original file info
+  const originalDims = await getImageDimensions(file);
+  console.log(`📸 ORIGINAL FILE: ${file.name}`);
+  console.log(`   Resolution: ${originalDims.width}x${originalDims.height}`);
+  console.log(`   Size: ${formatFileSize(file.size)}`);
+  console.log(`   Type: ${file.type}`);
   
   let originalBlob: Blob;
   let originalMime: string;
@@ -473,6 +486,22 @@ export async function processImage(file: File): Promise<ProcessedImage> {
     console.log(`📺 TV version created: ${formatFileSize(tvBlob.size)} (${formatFileSize(tvAnalysis.expectedSavings)} saved)`);
   } else {
     console.log('📺 Using original as TV version (no separate file needed)');
+  }
+  
+  // Log final upload details
+  const finalOriginalDims = await getImageDimensions(originalBlob);
+  console.log(`\n📤 UPLOADING HIGH QUALITY VERSION:`);
+  console.log(`   Resolution: ${finalOriginalDims.width}x${finalOriginalDims.height}`);
+  console.log(`   Size: ${formatFileSize(originalBlob.size)}`);
+  console.log(`   Processed: ${originalProcessed ? 'Yes' : 'No'} (${compressionStrategy})`);
+  
+  if (tvBlob) {
+    const tvDims = await getImageDimensions(tvBlob);
+    console.log(`\n📤 UPLOADING TV VERSION:`);
+    console.log(`   Resolution: ${tvDims.width}x${tvDims.height}`);
+    console.log(`   Size: ${formatFileSize(tvBlob.size)}`);
+  } else {
+    console.log(`\n📤 TV VERSION: Using high quality version (same file)`);
   }
   
   const result = {
