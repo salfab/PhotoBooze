@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { generateJoinToken, hashJoinToken } from '@/lib/auth/tokens';
+import { generateJoinToken } from '@/lib/auth/tokens';
 import { generateUniquePartyName } from '@/lib/party-names';
 import type { PartyWithOptionalPin } from '@/types/database';
 import { requiresPin } from '@/types/database';
@@ -162,7 +162,6 @@ export async function POST() {
     // Generate a join token for guests
     const tokenGenerationStart = Date.now();
     const joinToken = generateJoinToken();
-    const joinTokenHash = hashJoinToken(joinToken);
     const tokenTime = Date.now() - tokenGenerationStart;
 
     logPartiesContext('info', 'Tokens generated, creating unique party name', {
@@ -188,14 +187,14 @@ export async function POST() {
       nameGenerationTime
     });
 
-    // Create the party (without join_token_hash - using new table instead)
+    // Create the party (using new party_join_tokens table for tokens)
     const partyCreationStart = Date.now();
     const { data: party, error } = await supabase
       .from('parties')
       .insert({
         name: partyName,
         status: 'active'
-      } as any)
+      })
       .select('id, name, status, created_at')
       .single();
 

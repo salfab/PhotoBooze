@@ -41,7 +41,6 @@ export type Database = {
           countdown_target: string | null
           created_at: string
           id: string
-          join_token_hash: string
           name: string | null
           status: string
         }
@@ -51,7 +50,6 @@ export type Database = {
           countdown_target?: string | null
           created_at?: string
           id?: string
-          join_token_hash: string
           name?: string | null
           status?: string
         }
@@ -61,7 +59,6 @@ export type Database = {
           countdown_target?: string | null
           created_at?: string
           id?: string
-          join_token_hash?: string
           name?: string | null
           status?: string
         }
