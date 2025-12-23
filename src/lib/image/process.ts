@@ -378,6 +378,7 @@ export interface ProcessedImage {
 export async function processImage(file: File): Promise<ProcessedImage> {
   // Log original file info
   const originalDims = await getImageDimensions(file);
+  const originalFileSize = file.size;
   console.log(`📸 ORIGINAL FILE: ${file.name}`);
   console.log(`   Resolution: ${originalDims.width}x${originalDims.height}`);
   console.log(`   Size: ${formatFileSize(file.size)}`);
@@ -494,6 +495,23 @@ export async function processImage(file: File): Promise<ProcessedImage> {
   console.log(`   Resolution: ${finalOriginalDims.width}x${finalOriginalDims.height}`);
   console.log(`   Size: ${formatFileSize(originalBlob.size)}`);
   console.log(`   Processed: ${originalProcessed ? 'Yes' : 'No'} (${compressionStrategy})`);
+  
+  // Log HQ processing impact if any processing happened
+  if (originalProcessed) {
+    const spaceSaved = originalFileSize - originalBlob.size;
+    const resolutionChanged = originalDims.width !== finalOriginalDims.width || originalDims.height !== finalOriginalDims.height;
+    
+    console.log(`\n💾 HQ PROCESSING IMPACT:`);
+    console.log(`   Space saved: ${formatFileSize(spaceSaved)} (${((spaceSaved / originalFileSize) * 100).toFixed(1)}%)`);
+    if (resolutionChanged) {
+      const originalPixels = originalDims.width * originalDims.height;
+      const finalPixels = finalOriginalDims.width * finalOriginalDims.height;
+      const resolutionLoss = ((originalPixels - finalPixels) / originalPixels) * 100;
+      console.log(`   Resolution: ${originalDims.width}x${originalDims.height} → ${finalOriginalDims.width}x${finalOriginalDims.height} (${resolutionLoss.toFixed(1)}% reduction)`);
+    } else {
+      console.log(`   Resolution: Preserved (${finalOriginalDims.width}x${finalOriginalDims.height})`);
+    }
+  }
   
   if (tvBlob) {
     const tvDims = await getImageDimensions(tvBlob);
