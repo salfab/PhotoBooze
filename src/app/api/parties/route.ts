@@ -160,15 +160,14 @@ export async function POST() {
       nameGenerationTime
     });
 
-    // Create the party
+    // Create the party (without join_token_hash - using new table instead)
     const partyCreationStart = Date.now();
     const { data: party, error } = await supabase
       .from('parties')
       .insert({
         name: partyName,
-        status: 'active',
-        join_token_hash: joinTokenHash,
-      })
+        status: 'active'
+      } as any)
       .select('id, name, status, created_at')
       .single();
 
@@ -186,6 +185,33 @@ export async function POST() {
       );
     }
 
+    // Store the join token in the separate table
+    const tokenStoreStart = Date.now();
+    const { error: tokenError } = await supabase
+      .from('party_join_tokens' as any)
+      .insert({
+        party_id: party.id,
+        token: joinToken
+      });
+
+    if (tokenError) {
+      logPartiesContext('error', 'Failed to store join token', {
+        requestId,
+        partyId: party.id,
+        tokenStoreTime: Date.now() - tokenStoreStart,
+        error: tokenError.message,
+        errorCode: tokenError.code
+      });
+      
+      // Clean up the party if token storage fails
+      await supabase.from('parties').delete().eq('id', party.id);
+      
+      return NextResponse.json(
+        { error: 'Failed to create party' },
+        { status: 500 }
+      );
+    }
+
     const totalTime = Date.now() - startTime;
     logPartiesContext('info', 'Party created successfully', {
       requestId,
@@ -193,6 +219,7 @@ export async function POST() {
       partyName: party.name,
       partyCreationTime: Date.now() - partyCreationStart,
       tokenGenerationTime: tokenTime,
+      tokenStoreTime: Date.now() - tokenStoreStart,
       nameGenerationTime,
       totalTime
     });

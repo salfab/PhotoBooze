@@ -565,10 +565,10 @@ export default function AdminPage() {
                     startIcon={<QrCodeIcon />}
                     onClick={() => generateQrCode(party.id)}
                   >
-                    Generate QR Code
+                    Show QR Code
                   </Button>
                   <Typography variant="caption" color="text.secondary">
-                    Create a new join link for this party
+                    Reveal the join QR code for this party
                   </Typography>
                 </Box>
               )}

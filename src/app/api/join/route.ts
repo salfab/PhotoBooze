@@ -57,18 +57,9 @@ export async function POST(request: NextRequest) {
     const partyQueryStart = Date.now();
     const { data: party, error: partyError } = await supabase
       .from('parties')
-      .select('id, status, join_token_hash')
+      .select('id, status')
       .eq('id', partyId)
       .single();
-
-    logJoinContext('info', 'Party query completed', {
-      requestId,
-      partyId,
-      partyQueryTime: Date.now() - partyQueryStart,
-      partyFound: !!party,
-      partyStatus: party?.status,
-      hasJoinTokenHash: !!party?.join_token_hash
-    });
 
     if (partyError || !party) {
       logJoinContext('error', 'Party lookup failed', {
@@ -84,6 +75,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get the join token for this party
+    const { data: tokenData, error: tokenError } = await supabase
+      .from('party_join_tokens' as any)
+      .select('token')
+      .eq('party_id', partyId)
+      .single() as { data: { token: string } | null; error: any };
+
+    logJoinContext('info', 'Party and token query completed', {
+      requestId,
+      partyId,
+      partyQueryTime: Date.now() - partyQueryStart,
+      partyFound: !!party,
+      partyStatus: party?.status,
+      hasJoinToken: !!tokenData?.token,
+      tokenError: tokenError?.message
+    });
+
     if (party.status !== 'active') {
       logJoinContext('warn', 'Attempted to join inactive party', {
         requestId,
@@ -98,11 +106,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the join token
-    if (!party.join_token_hash) {
-      logJoinContext('error', 'Party missing join token hash', {
+    if (tokenError || !tokenData?.token) {
+      logJoinContext('error', 'Party missing join token', {
         requestId,
         partyId,
-        configurationError: 'no_join_token_hash'
+        configurationError: 'no_join_token',
+        tokenError: tokenError?.message
       });
       return NextResponse.json(
         { error: 'Party is not configured for joining' },
@@ -111,7 +120,8 @@ export async function POST(request: NextRequest) {
     }
     
     const tokenVerificationStart = Date.now();
-    const tokenValid = verifyJoinToken(token, party.join_token_hash);
+    const storedToken = tokenData.token;
+    const tokenValid = token === storedToken; // Direct comparison instead of hash verification
     
     logJoinContext('info', 'Token verification completed', {
       requestId,

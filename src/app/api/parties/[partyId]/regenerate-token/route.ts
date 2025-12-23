@@ -1,17 +1,18 @@
 /**
- * POST /api/parties/[id]/regenerate-token - Generate a new join token for an existing party
+ * POST /api/parties/[id]/regenerate-token - Get the existing join token for a party
+ * (Renamed from regenerate-token but keeping URL for compatibility)
  */
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { generateJoinToken, hashJoinToken, verifyPin } from '@/lib/auth/tokens';
+import { verifyPin } from '@/lib/auth/tokens';
 
-function logRegenerateTokenContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
+function logGetTokenContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
   const timestamp = new Date().toISOString();
   const logData = {
     timestamp,
     level: level.toUpperCase(),
-    service: 'api.parties.regenerate-token',
+    service: 'api.parties.get-token',
     message,
     ...context
   };
@@ -29,12 +30,12 @@ export async function POST(
     const supabase = createServerClient();
     const { partyId } = await params;
     
-    logRegenerateTokenContext('info', 'Token regeneration request received', {
+    logGetTokenContext('info', 'Get join token request received', {
       requestId,
       partyId
     });
     
-    // Check if the party requires a PIN
+    // Get the party and its existing join token
     const partyFetchStart = Date.now();
     const { data: party, error: fetchError } = await supabase
       .from('parties')
@@ -43,7 +44,7 @@ export async function POST(
       .single();
 
     if (fetchError) {
-      logRegenerateTokenContext('error', 'Failed to fetch party for token regeneration', {
+      logGetTokenContext('error', 'Failed to fetch party for token retrieval', {
         requestId,
         partyId,
         fetchTime: Date.now() - partyFetchStart,
@@ -56,7 +57,29 @@ export async function POST(
       );
     }
 
-    logRegenerateTokenContext('info', 'Party fetched, checking PIN requirements', {
+    // Get the join token for this party
+    const { data: tokenData, error: tokenError } = await supabase
+      .from('party_join_tokens' as any)
+      .select('token')
+      .eq('party_id', partyId)
+      .single() as { data: { token: string } | null; error: any };
+
+    if (tokenError || !tokenData?.token) {
+      logGetTokenContext('error', 'Party has no join token configured', {
+        requestId,
+        partyId,
+        fetchTime: Date.now() - partyFetchStart,
+        tokenError: tokenError?.message
+      });
+      return NextResponse.json(
+        { error: 'Party has no join token configured' },
+        { status: 404 }
+      );
+    }
+
+    const joinToken = tokenData.token;
+
+    logGetTokenContext('info', 'Party fetched, checking PIN requirements', {
       requestId,
       partyId,
       requiresPin: !!party.admin_pin_hash,
@@ -75,7 +98,7 @@ export async function POST(
       const { pin } = body;
 
       if (!pin) {
-        logRegenerateTokenContext('warn', 'PIN required but not provided for token regeneration', {
+        logGetTokenContext('warn', 'PIN required but not provided for token retrieval', {
           requestId,
           partyId
         });
@@ -87,7 +110,7 @@ export async function POST(
 
       const verifyStart = Date.now();
       if (!verifyPin(pin, party.admin_pin_hash)) {
-        logRegenerateTokenContext('warn', 'Invalid PIN provided for token regeneration', {
+        logGetTokenContext('warn', 'Invalid PIN provided for token retrieval', {
           requestId,
           partyId,
           verifyTime: Date.now() - verifyStart
@@ -98,60 +121,28 @@ export async function POST(
         );
       }
       
-      logRegenerateTokenContext('info', 'PIN verified successfully', {
+      logGetTokenContext('info', 'PIN verified successfully', {
         requestId,
         partyId,
         verifyTime: Date.now() - verifyStart
       });
     }
 
-    // Generate a new join token
-    const tokenGenerationStart = Date.now();
-    const joinToken = generateJoinToken();
-    const joinTokenHash = hashJoinToken(joinToken);
-    const tokenGenerationTime = Date.now() - tokenGenerationStart;
-
-    logRegenerateTokenContext('info', 'New token generated, updating party', {
-      requestId,
-      partyId,
-      tokenGenerationTime
-    });
-
-    // Update the party with the new token hash
-    const updateStart = Date.now();
-    const { error } = await supabase
-      .from('parties')
-      .update({ join_token_hash: joinTokenHash })
-      .eq('id', partyId);
-
-    if (error) {
-      logRegenerateTokenContext('error', 'Failed to update party with new token', {
-        requestId,
-        partyId,
-        updateTime: Date.now() - updateStart,
-        error: error.message,
-        errorCode: error.code
-      });
-      return NextResponse.json(
-        { error: 'Failed to regenerate token' },
-        { status: 500 }
-      );
-    }
-
+    // Return the existing join token
     const totalTime = Date.now() - startTime;
-    logRegenerateTokenContext('info', 'Token regeneration completed successfully', {
+    logGetTokenContext('info', 'Join token retrieved successfully', {
       requestId,
       partyId,
       requiresPin: !!party.admin_pin_hash,
-      tokenGenerationTime,
-      updateTime: Date.now() - updateStart,
+      fetchTime: Date.now() - partyFetchStart,
       totalTime
     });
 
     return NextResponse.json({ joinToken });
+
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    logRegenerateTokenContext('error', 'Unexpected error in token regeneration', {
+    logGetTokenContext('error', 'Unexpected error in token retrieval', {
       requestId,
       partyId: (await params).partyId,
       totalTime,
