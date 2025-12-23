@@ -541,7 +541,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     
     const supabase = createServerClient();
 
-    // First, delete all photos from storage
+    // First, delete all photos from storage (including subdirectories)
     const partyFolder = getPartyFolder(partyId);
     
     logPartyDetailContext('info', 'Listing storage files for deletion', {
@@ -551,30 +551,41 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       bucket: STORAGE_BUCKET
     });
     
+    // List files in all subdirectories: original/ and tv/
     const listStart = Date.now();
-    const { data: files, error: listError } = await supabase.storage
+    const allFiles: string[] = [];
+    
+    // List files in original/ subdirectory
+    const { data: originalFiles, error: originalListError } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .list(partyFolder, { limit: 1000 });
-
-    if (listError) {
-      logPartyDetailContext('error', 'Failed to list storage files for deletion', {
+      .list(`${partyFolder}/original`, { limit: 1000 });
+    
+    if (originalListError) {
+      logPartyDetailContext('error', 'Failed to list original files', {
         requestId,
         partyId,
-        listTime: Date.now() - listStart,
-        bucket: STORAGE_BUCKET,
-        partyFolder,
-        error: listError.message
+        error: originalListError.message
       });
-      return NextResponse.json(
-        { 
-          error: 'Failed to list storage files',
-          details: `Bucket: ${STORAGE_BUCKET}, Path: ${partyFolder}, Error: ${listError.message}`
-        },
-        { status: 500 }
-      );
+    } else if (originalFiles && originalFiles.length > 0) {
+      allFiles.push(...originalFiles.map(f => `${partyFolder}/original/${f.name}`));
+    }
+    
+    // List files in tv/ subdirectory
+    const { data: tvFiles, error: tvListError } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .list(`${partyFolder}/tv`, { limit: 1000 });
+    
+    if (tvListError) {
+      logPartyDetailContext('error', 'Failed to list TV files', {
+        requestId,
+        partyId,
+        error: tvListError.message
+      });
+    } else if (tvFiles && tvFiles.length > 0) {
+      allFiles.push(...tvFiles.map(f => `${partyFolder}/tv/${f.name}`));
     }
 
-    const fileCount = files?.length || 0;
+    const fileCount = allFiles.length;
     let storageRemoveTime = 0;
     
     logPartyDetailContext('info', 'Storage files listed, proceeding with deletion', {
@@ -584,13 +595,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       fileCount
     });
 
-    if (files && files.length > 0) {
-      const filePaths = files.map(f => `${partyFolder}/${f.name}`);
+    if (allFiles && allFiles.length > 0) {
       
       const removeStart = Date.now();
       const { error: removeError } = await supabase.storage
         .from(STORAGE_BUCKET)
-        .remove(filePaths);
+        .remove(allFiles);
 
       storageRemoveTime = Date.now() - removeStart;
 
@@ -600,13 +610,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
           partyId,
           removeTime: storageRemoveTime,
           bucket: STORAGE_BUCKET,
-          fileCount: filePaths.length,
+          fileCount: allFiles.length,
           error: removeError.message
         });
         return NextResponse.json(
           { 
             error: 'Failed to remove storage files',
-            details: `Bucket: ${STORAGE_BUCKET}, Files: ${filePaths.length}, Error: ${removeError.message}`
+            details: `Bucket: ${STORAGE_BUCKET}, Files: ${allFiles.length}, Error: ${removeError.message}`
           },
           { status: 500 }
         );
@@ -616,7 +626,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         requestId,
         partyId,
         removeTime: storageRemoveTime,
-        filesRemoved: filePaths.length
+        filesRemoved: allFiles.length
       });
     }
 
