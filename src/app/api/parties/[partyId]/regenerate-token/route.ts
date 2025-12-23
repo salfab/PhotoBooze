@@ -39,7 +39,7 @@ export async function POST(
     const partyFetchStart = Date.now();
     const { data: party, error: fetchError } = await supabase
       .from('parties')
-      .select('admin_pin_hash')
+      .select('id, admin_pin_hash')
       .eq('id', partyId)
       .single();
 
@@ -51,10 +51,33 @@ export async function POST(
         error: fetchError.message,
         errorCode: fetchError.code
       });
-      return NextResponse.json(
-        { error: 'Failed to fetch party' },
-        { status: 500 }
-      );
+      
+      // Handle case where admin_pin_hash column doesn't exist
+      if (fetchError.message?.includes('admin_pin_hash') || fetchError.code === '42703') {
+        logGetTokenContext('warn', 'Admin PIN column not found - feature disabled', {
+          requestId,
+          partyId
+        });
+        // Retry without the admin_pin_hash column
+        const { data: basicParty, error: basicError } = await supabase
+          .from('parties')
+          .select('id')
+          .eq('id', partyId)
+          .single();
+        
+        if (basicError) {
+          return NextResponse.json(
+            { error: 'Failed to fetch party' },
+            { status: 500 }
+          );
+        }
+        // Continue without PIN protection
+      } else {
+        return NextResponse.json(
+          { error: 'Failed to fetch party' },
+          { status: 500 }
+        );
+      }
     }
 
     // Get the join token for this party
@@ -82,12 +105,13 @@ export async function POST(
     logGetTokenContext('info', 'Party fetched, checking PIN requirements', {
       requestId,
       partyId,
-      requiresPin: !!party.admin_pin_hash,
+      requiresPin: !!((party as any)?.admin_pin_hash),
       fetchTime: Date.now() - partyFetchStart
     });
 
-    // If party has a PIN set, verify it
-    if (party.admin_pin_hash) {
+    // If party has a PIN set, verify it (gracefully handle if column doesn't exist)
+    const adminPinHash = (party as any)?.admin_pin_hash;
+    if (adminPinHash) {
       let body;
       try {
         body = await request.json();
@@ -109,7 +133,7 @@ export async function POST(
       }
 
       const verifyStart = Date.now();
-      if (!verifyPin(pin, party.admin_pin_hash)) {
+      if (!verifyPin(pin, adminPinHash)) {
         logGetTokenContext('warn', 'Invalid PIN provided for token retrieval', {
           requestId,
           partyId,
@@ -133,7 +157,7 @@ export async function POST(
     logGetTokenContext('info', 'Join token retrieved successfully', {
       requestId,
       partyId,
-      requiresPin: !!party.admin_pin_hash,
+      requiresPin: !!((party as any)?.admin_pin_hash),
       fetchTime: Date.now() - partyFetchStart,
       totalTime
     });

@@ -349,19 +349,33 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
         // Fetch current PIN hash
         const pinCheckStart = Date.now();
-        const { data: currentParty, error: pinFetchError } = await supabase
+        let { data: currentParty, error: pinFetchError } = await supabase
           .from('parties')
           .select('admin_pin_hash')
           .eq('id', partyId)
           .single();
+        
+        // Handle case where admin_pin_hash column doesn't exist
+        if (pinFetchError && (pinFetchError.message?.includes('admin_pin_hash') || pinFetchError.code === '42703')) {
+          logPartyDetailContext('warn', 'Admin PIN column not found - feature disabled', {
+            requestId,
+            partyId,
+            pinCheckTime: Date.now() - pinCheckStart
+          });
+          return NextResponse.json(
+            { error: 'PIN feature not available' },
+            { status: 400 }
+          );
+        }
 
-        if (pinFetchError || !currentParty?.admin_pin_hash) {
+        const adminPinHash = (currentParty as any)?.admin_pin_hash;
+        if (pinFetchError || !adminPinHash) {
           logPartyDetailContext('error', 'Failed to fetch current PIN or no PIN set', {
             requestId,
             partyId,
             pinCheckTime: Date.now() - pinCheckStart,
             error: pinFetchError?.message,
-            hasPinHash: !!currentParty?.admin_pin_hash
+            hasPinHash: !!adminPinHash
           });
           return NextResponse.json(
             { error: 'No PIN set for this party' },
@@ -370,7 +384,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         const verifyStart = Date.now();
-        if (!verifyPin(body.currentPin, currentParty.admin_pin_hash)) {
+        if (!verifyPin(body.currentPin, adminPinHash)) {
           logPartyDetailContext('warn', 'Invalid current PIN provided for removal', {
             requestId,
             partyId,
