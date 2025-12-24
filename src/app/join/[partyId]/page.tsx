@@ -12,9 +12,20 @@ import {
   CircularProgress,
   Card,
   CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import { CameraAlt as CameraIcon } from '@mui/icons-material';
 import styles from './page.module.css';
+
+interface ConfirmationState {
+  open: boolean;
+  message: string;
+  existingUploader: { id: string; displayName: string } | null;
+}
 
 export default function JoinPage() {
   const params = useParams();
@@ -40,6 +51,11 @@ export default function JoinPage() {
   const [error, setError] = useState<string | null>(null);
   const [validating, setValidating] = useState(true);
   const [partyValid, setPartyValid] = useState(false);
+  const [confirmation, setConfirmation] = useState<ConfirmationState>({
+    open: false,
+    message: '',
+    existingUploader: null,
+  });
 
   // Validate party and token on mount
   useEffect(() => {
@@ -90,15 +106,17 @@ export default function JoinPage() {
     validateParty();
   }, [partyId, token]);
 
-  const handleJoin = useCallback(async () => {
+  const handleJoin = useCallback(async (confirmTakeover: boolean = false) => {
     if (!token) {
       setError('Join token is missing. Please scan the QR code again.');
-      console.error('handleJoin called but token is null/undefined');
+      console.error('[JoinPage] handleJoin called but token is null/undefined');
       return;
     }
 
     setLoading(true);
     setError(null);
+
+    console.log('[JoinPage] Joining party', { partyId, hasToken: !!token, displayName: displayName.trim() || null, confirmTakeover });
 
     try {
       const response = await fetch('/api/join', {
@@ -108,22 +126,51 @@ export default function JoinPage() {
           partyId,
           token,
           displayName: displayName.trim() || null,
+          confirm: confirmTakeover,
         }),
       });
 
+      const data = await response.json();
+      console.log('[JoinPage] Join response', { status: response.status, data });
+
       if (!response.ok) {
-        const data = await response.json();
+        console.error('[JoinPage] Join failed', { status: response.status, error: data.error });
         throw new Error(data.error || 'Failed to join party');
       }
 
-      // Redirect to upload page
+      // Check if confirmation is required (name already exists)
+      if (data.requiresConfirmation) {
+        console.log('[JoinPage] Confirmation required for existing user', data.existingUploader);
+        setConfirmation({
+          open: true,
+          message: data.message,
+          existingUploader: data.existingUploader,
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Successfully joined - redirect to upload page
+      console.log('[JoinPage] Join successful, redirecting to upload page');
       router.push(`/upload/${partyId}`);
     } catch (err) {
+      console.error('[JoinPage] Join error', err);
       setError(err instanceof Error ? err.message : 'Failed to join party');
-    } finally {
       setLoading(false);
     }
   }, [partyId, token, displayName, router]);
+
+  const handleConfirmTakeover = useCallback(() => {
+    console.log('[JoinPage] User confirmed takeover');
+    setConfirmation({ open: false, message: '', existingUploader: null });
+    handleJoin(true);
+  }, [handleJoin]);
+
+  const handleCancelTakeover = useCallback(() => {
+    console.log('[JoinPage] User cancelled takeover');
+    setConfirmation({ open: false, message: '', existingUploader: null });
+    setDisplayName('');
+  }, []);
 
   if (validating) {
     return (
@@ -192,6 +239,31 @@ export default function JoinPage() {
           </Box>
         </CardContent>
       </Card>
+
+      {/* Confirmation dialog for existing user takeover */}
+      <Dialog
+        open={confirmation.open}
+        onClose={handleCancelTakeover}
+        aria-labelledby="confirmation-dialog-title"
+        aria-describedby="confirmation-dialog-description"
+      >
+        <DialogTitle id="confirmation-dialog-title">
+          Welcome Back!
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="confirmation-dialog-description">
+            {confirmation.message}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelTakeover} color="inherit">
+            Use Different Name
+          </Button>
+          <Button onClick={handleConfirmTakeover} variant="contained" autoFocus>
+            Continue as {confirmation.existingUploader?.displayName}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

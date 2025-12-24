@@ -8,31 +8,22 @@ import { createServerClient } from '@/lib/supabase/server';
 import { verifyPin } from '@/lib/auth/tokens';
 import type { PartyWithOptionalPin } from '@/types/database';
 import { getAdminPinHash, requiresPin } from '@/types/database';
+import { createLogger, generateRequestId } from '@/lib/logging';
 
-function logGetTokenContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
-  const timestamp = new Date().toISOString();
-  const logData = {
-    timestamp,
-    level: level.toUpperCase(),
-    service: 'api.parties.get-token',
-    message,
-    ...context
-  };
-  console.log(JSON.stringify(logData));
-}
+const log = createLogger('api.parties.get-token');
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ partyId: string }> }
 ) {
-  const requestId = Math.random().toString(36).substring(2, 10);
+  const requestId = generateRequestId();
   const startTime = Date.now();
   
   try {
     const supabase = createServerClient();
     const { partyId } = await params;
     
-    logGetTokenContext('info', 'Get join token request received', {
+    log('info', 'Get join token request received', {
       requestId,
       partyId
     });
@@ -50,7 +41,7 @@ export async function POST(
       .single();
 
     if (fullError && (fullError.message?.includes('admin_pin_hash') || fullError.code === '42703')) {
-      logGetTokenContext('warn', 'Admin PIN column not found - PIN protection disabled', {
+      log('warn', 'Admin PIN column not found - PIN protection disabled', {
         requestId,
         partyId
       });
@@ -70,7 +61,7 @@ export async function POST(
     }
 
     if (fetchError || !party) {
-      logGetTokenContext('error', 'Failed to fetch party for token retrieval', {
+      log('error', 'Failed to fetch party for token retrieval', {
         requestId,
         partyId,
         fetchTime: Date.now() - partyFetchStart,
@@ -85,13 +76,13 @@ export async function POST(
 
     // Get the join token for this party
     const { data: tokenData, error: tokenError } = await supabase
-      .from('party_join_tokens' as any)
+      .from('party_join_tokens')
       .select('token')
       .eq('party_id', partyId)
-      .single() as { data: { token: string } | null; error: any };
+      .single();
 
     if (tokenError || !tokenData?.token) {
-      logGetTokenContext('error', 'Party has no join token configured', {
+      log('error', 'Party has no join token configured', {
         requestId,
         partyId,
         fetchTime: Date.now() - partyFetchStart,
@@ -105,7 +96,7 @@ export async function POST(
 
     const joinToken = tokenData.token;
 
-    logGetTokenContext('info', 'Party fetched, checking PIN requirements', {
+    log('info', 'Party fetched, checking PIN requirements', {
       requestId,
       partyId,
       requiresPin: requiresPin(party),
@@ -125,7 +116,7 @@ export async function POST(
       const { pin } = body;
 
       if (!pin) {
-        logGetTokenContext('warn', 'PIN required but not provided for token retrieval', {
+        log('warn', 'PIN required but not provided for token retrieval', {
           requestId,
           partyId
         });
@@ -137,7 +128,7 @@ export async function POST(
 
       const verifyStart = Date.now();
       if (!verifyPin(pin, adminPinHash)) {
-        logGetTokenContext('warn', 'Invalid PIN provided for token retrieval', {
+        log('warn', 'Invalid PIN provided for token retrieval', {
           requestId,
           partyId,
           verifyTime: Date.now() - verifyStart
@@ -148,7 +139,7 @@ export async function POST(
         );
       }
       
-      logGetTokenContext('info', 'PIN verified successfully', {
+      log('info', 'PIN verified successfully', {
         requestId,
         partyId,
         verifyTime: Date.now() - verifyStart
@@ -157,7 +148,7 @@ export async function POST(
 
     // Return the existing join token
     const totalTime = Date.now() - startTime;
-    logGetTokenContext('info', 'Join token retrieved successfully', {
+    log('info', 'Join token retrieved successfully', {
       requestId,
       partyId,
       requiresPin: requiresPin(party),
@@ -169,7 +160,7 @@ export async function POST(
 
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    logGetTokenContext('error', 'Unexpected error in token retrieval', {
+    log('error', 'Unexpected error in token retrieval', {
       requestId,
       partyId: (await params).partyId,
       totalTime,

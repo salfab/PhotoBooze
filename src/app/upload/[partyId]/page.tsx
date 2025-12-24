@@ -59,35 +59,51 @@ export default function UploadPage() {
   // Get user's display name from session
   useEffect(() => {
     async function getSessionInfo() {
+      console.log('[UploadPage] Checking session for party:', partyId);
       try {
         const sessionRes = await fetch('/api/session');
+        console.log('[UploadPage] Session response status:', sessionRes.status);
+        
         if (sessionRes.ok) {
           const session = await sessionRes.json();
+          console.log('[UploadPage] Session data:', { authenticated: session.authenticated, partyId: session.partyId, uploaderId: session.uploaderId });
+          
           if (session.authenticated && session.partyId === partyId) {
             const uploaderRes = await fetch(`/api/uploaders/${session.uploaderId}`);
             if (uploaderRes.ok) {
               const uploader = await uploaderRes.json();
               setDisplayName(uploader.display_name || 'Guest');
+              console.log('[UploadPage] Uploader loaded:', uploader.display_name);
             }
             
             const partyRes = await fetch(`/api/parties/${partyId}`);
             if (partyRes.ok) {
               const party = await partyRes.json();
               setPartyName(party.name || null);
+              console.log('[UploadPage] Party loaded:', party.name);
             } else if (partyRes.status === 404) {
+              console.error('[UploadPage] Party not found');
               setError('Party not found. It may have been deleted or the link is incorrect.');
               setErrorDialogOpen(true);
             } else {
+              console.error('[UploadPage] Failed to load party, status:', partyRes.status);
               setError('Unable to load party information.');
               setErrorDialogOpen(true);
             }
           } else {
+            console.warn('[UploadPage] Session mismatch or not authenticated, redirecting to home', {
+              authenticated: session.authenticated,
+              sessionPartyId: session.partyId,
+              currentPartyId: partyId,
+            });
             router.push('/');
           }
         } else {
+          console.warn('[UploadPage] Session check failed with status:', sessionRes.status, '- redirecting to home');
           router.push('/');
         }
-      } catch {
+      } catch (err) {
+        console.error('[UploadPage] Session check error:', err);
         setError('Unable to connect to the server. Please check your internet connection.');
         setErrorDialogOpen(true);
       }

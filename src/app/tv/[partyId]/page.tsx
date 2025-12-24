@@ -104,16 +104,13 @@ export default function TvPage() {
       }
       
       try {
-        const QRCode = (await import('qrcode')).default;
-        const joinUrl = `${window.location.origin}/join/${partyId}?token=${joinToken}`;
-        const qrDataUrl = await QRCode.toDataURL(joinUrl, {
-          width: 400,
-          margin: 2,
-          color: {
-            dark: '#000000',
-            light: '#ffffff',
-          },
-        });
+        const { generatePartyQrCode } = await import('@/lib/utils/qrcode');
+        const qrDataUrl = await generatePartyQrCode(
+          partyId,
+          joinToken,
+          window.location.origin,
+          { width: 400 }
+        );
         setQrCodeUrl(qrDataUrl);
       } catch (err) {
         console.error('Failed to generate QR code:', err);

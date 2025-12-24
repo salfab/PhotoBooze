@@ -7,31 +7,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, STORAGE_BUCKET, getPartyFolder } from '@/lib/supabase/server';
 import { hashPin, verifyPin } from '@/lib/auth/tokens';
+import { createLogger, generateRequestId } from '@/lib/logging';
 
-function logPartyDetailContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
-  const timestamp = new Date().toISOString();
-  const logData = {
-    timestamp,
-    level: level.toUpperCase(),
-    service: 'api.parties.detail',
-    message,
-    ...context
-  };
-  console.log(JSON.stringify(logData));
-}
+const log = createLogger('api.parties.detail');
 
 interface RouteParams {
   params: Promise<{ partyId: string }>;
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
-  const requestId = Math.random().toString(36).substring(2, 10);
+  const requestId = generateRequestId();
   const startTime = Date.now();
   
   try {
     const { partyId } = await params;
     
-    logPartyDetailContext('info', 'Party detail request received', {
+    log('info', 'Party detail request received', {
       requestId,
       partyId
     });
@@ -47,7 +38,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (error || !party) {
-      logPartyDetailContext('warn', 'Party not found', {
+      log('warn', 'Party not found', {
         requestId,
         partyId,
         queryTime: Date.now() - partyQueryStart,
@@ -59,7 +50,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    logPartyDetailContext('info', 'Party found, getting counts', {
+    log('info', 'Party found, getting counts', {
       requestId,
       partyId: party.id,
       partyName: party.name,
@@ -80,7 +71,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .eq('party_id', partyId);
 
     if (photoError || uploaderError) {
-      logPartyDetailContext('warn', 'Failed to get counts for party detail', {
+      log('warn', 'Failed to get counts for party detail', {
         requestId,
         partyId,
         photoError: photoError?.message,
@@ -89,7 +80,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const totalTime = Date.now() - startTime;
-    logPartyDetailContext('info', 'Party detail completed successfully', {
+    log('info', 'Party detail completed successfully', {
       requestId,
       partyId,
       photoCount: photoCount ?? 0,
@@ -109,7 +100,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    logPartyDetailContext('error', 'Unexpected error in party detail', {
+    log('error', 'Unexpected error in party detail', {
       requestId,
       partyId: (await params).partyId,
       totalTime,
@@ -131,7 +122,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { partyId } = await params;
     
-    logPartyDetailContext('info', 'Party update request received', {
+    log('info', 'Party update request received', {
       requestId,
       partyId
     });
@@ -141,7 +132,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Handle name updates
     if (body.name !== undefined) {
-      logPartyDetailContext('info', 'Processing name update', {
+      log('info', 'Processing name update', {
         requestId,
         partyId,
         newName: body.name,
@@ -149,7 +140,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
       
       if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
-        logPartyDetailContext('warn', 'Invalid name provided for update', {
+        log('warn', 'Invalid name provided for update', {
           requestId,
           partyId,
           providedName: body.name,
@@ -171,7 +162,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         .single();
 
       if (nameCheckError && nameCheckError.code !== 'PGRST116') {
-        logPartyDetailContext('error', 'Failed to check name availability', {
+        log('error', 'Failed to check name availability', {
           requestId,
           partyId,
           nameCheckTime: Date.now() - nameCheckStart,
@@ -180,7 +171,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       if (existingParty) {
-        logPartyDetailContext('warn', 'Name already taken by another party', {
+        log('warn', 'Name already taken by another party', {
           requestId,
           partyId,
           requestedName: body.name.trim(),
@@ -202,7 +193,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         .single();
 
       if (error || !party) {
-        logPartyDetailContext('error', 'Failed to update party name', {
+        log('error', 'Failed to update party name', {
           requestId,
           partyId,
           updateTime: Date.now() - updateStart,
@@ -215,7 +206,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       const totalTime = Date.now() - startTime;
-      logPartyDetailContext('info', 'Party name updated successfully', {
+      log('info', 'Party name updated successfully', {
         requestId,
         partyId,
         oldName: '[unknown]',
@@ -235,7 +226,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Handle status updates
     if (body.status && ['active', 'closed'].includes(body.status)) {
-      logPartyDetailContext('info', 'Processing status update', {
+      log('info', 'Processing status update', {
         requestId,
         partyId,
         newStatus: body.status
@@ -250,7 +241,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         .single();
 
       if (error || !party) {
-        logPartyDetailContext('error', 'Failed to update party status', {
+        log('error', 'Failed to update party status', {
           requestId,
           partyId,
           updateTime: Date.now() - updateStart,
@@ -263,7 +254,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       const totalTime = Date.now() - startTime;
-      logPartyDetailContext('info', 'Party status updated successfully', {
+      log('info', 'Party status updated successfully', {
         requestId,
         partyId,
         newStatus: party.status,
@@ -281,7 +272,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Handle countdown target updates
     if (body.countdownTarget !== undefined) {
-      logPartyDetailContext('info', 'Processing countdown target update', {
+      log('info', 'Processing countdown target update', {
         requestId,
         partyId,
         newCountdownTarget: body.countdownTarget
@@ -296,7 +287,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         .single();
 
       if (error || !party) {
-        logPartyDetailContext('error', 'Failed to update countdown target', {
+        log('error', 'Failed to update countdown target', {
           requestId,
           partyId,
           updateTime: Date.now() - updateStart,
@@ -309,7 +300,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       const totalTime = Date.now() - startTime;
-      logPartyDetailContext('info', 'Countdown target updated successfully', {
+      log('info', 'Countdown target updated successfully', {
         requestId,
         partyId,
         newCountdownTarget: party.countdown_target,
@@ -329,7 +320,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Handle PIN updates (set or remove)
     if (body.pin !== undefined) {
       if (body.pin === null) {
-        logPartyDetailContext('info', 'Processing PIN removal', {
+        log('info', 'Processing PIN removal', {
           requestId,
           partyId,
           hasCurrentPin: !!body.currentPin
@@ -337,7 +328,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         
         // Remove PIN - require current PIN for verification
         if (!body.currentPin) {
-          logPartyDetailContext('warn', 'Missing current PIN for removal', {
+          log('warn', 'Missing current PIN for removal', {
             requestId,
             partyId
           });
@@ -357,7 +348,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         
         // Handle case where admin_pin_hash column doesn't exist
         if (pinFetchError && (pinFetchError.message?.includes('admin_pin_hash') || pinFetchError.code === '42703')) {
-          logPartyDetailContext('warn', 'Admin PIN column not found - feature disabled', {
+          log('warn', 'Admin PIN column not found - feature disabled', {
             requestId,
             partyId,
             pinCheckTime: Date.now() - pinCheckStart
@@ -370,7 +361,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
         const adminPinHash = (currentParty as any)?.admin_pin_hash;
         if (pinFetchError || !adminPinHash) {
-          logPartyDetailContext('error', 'Failed to fetch current PIN or no PIN set', {
+          log('error', 'Failed to fetch current PIN or no PIN set', {
             requestId,
             partyId,
             pinCheckTime: Date.now() - pinCheckStart,
@@ -385,7 +376,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
         const verifyStart = Date.now();
         if (!verifyPin(body.currentPin, adminPinHash)) {
-          logPartyDetailContext('warn', 'Invalid current PIN provided for removal', {
+          log('warn', 'Invalid current PIN provided for removal', {
             requestId,
             partyId,
             verifyTime: Date.now() - verifyStart
@@ -406,7 +397,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           .single();
 
         if (error || !party) {
-          logPartyDetailContext('error', 'Failed to remove PIN from party', {
+          log('error', 'Failed to remove PIN from party', {
             requestId,
             partyId,
             updateTime: Date.now() - updateStart,
@@ -419,7 +410,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         const totalTime = Date.now() - startTime;
-        logPartyDetailContext('info', 'PIN removed successfully', {
+        log('info', 'PIN removed successfully', {
           requestId,
           partyId,
           pinCheckTime: Date.now() - pinCheckStart,
@@ -436,7 +427,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           requiresPin: false,
         });
       } else {
-        logPartyDetailContext('info', 'Processing PIN creation/update', {
+        log('info', 'Processing PIN creation/update', {
           requestId,
           partyId,
           pinFormat: /^\d{6}$/.test(body.pin) ? 'valid' : 'invalid'
@@ -444,7 +435,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         
         // Set PIN - validate it's 6 digits
         if (!/^\d{6}$/.test(body.pin)) {
-          logPartyDetailContext('warn', 'Invalid PIN format provided', {
+          log('warn', 'Invalid PIN format provided', {
             requestId,
             partyId,
             pinLength: body.pin?.length,
@@ -469,7 +460,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           .single();
 
         if (error || !party) {
-          logPartyDetailContext('error', 'Failed to set PIN for party', {
+          log('error', 'Failed to set PIN for party', {
             requestId,
             partyId,
             updateTime: Date.now() - updateStart,
@@ -482,7 +473,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         const totalTime = Date.now() - startTime;
-        logPartyDetailContext('info', 'PIN set successfully', {
+        log('info', 'PIN set successfully', {
           requestId,
           partyId,
           hashTime,
@@ -500,7 +491,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    logPartyDetailContext('warn', 'Invalid update request - no valid fields provided', {
+    log('warn', 'Invalid update request - no valid fields provided', {
       requestId,
       partyId,
       providedFields: Object.keys(body)
@@ -512,7 +503,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     );
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    logPartyDetailContext('error', 'Unexpected error in party update', {
+    log('error', 'Unexpected error in party update', {
       requestId,
       partyId: (await params).partyId,
       totalTime,
@@ -534,7 +525,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { partyId } = await params;
     
-    logPartyDetailContext('info', 'Party deletion request received', {
+    log('info', 'Party deletion request received', {
       requestId,
       partyId
     });
@@ -544,7 +535,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // First, delete all photos from storage (including subdirectories)
     const partyFolder = getPartyFolder(partyId);
     
-    logPartyDetailContext('info', 'Listing storage files for deletion', {
+    log('info', 'Listing storage files for deletion', {
       requestId,
       partyId,
       partyFolder,
@@ -561,7 +552,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .list(`${partyFolder}/original`, { limit: 1000 });
     
     if (originalListError) {
-      logPartyDetailContext('error', 'Failed to list original files', {
+      log('error', 'Failed to list original files', {
         requestId,
         partyId,
         error: originalListError.message
@@ -576,7 +567,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .list(`${partyFolder}/tv`, { limit: 1000 });
     
     if (tvListError) {
-      logPartyDetailContext('error', 'Failed to list TV files', {
+      log('error', 'Failed to list TV files', {
         requestId,
         partyId,
         error: tvListError.message
@@ -588,7 +579,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const fileCount = allFiles.length;
     let storageRemoveTime = 0;
     
-    logPartyDetailContext('info', 'Storage files listed, proceeding with deletion', {
+    log('info', 'Storage files listed, proceeding with deletion', {
       requestId,
       partyId,
       listTime: Date.now() - listStart,
@@ -605,7 +596,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       storageRemoveTime = Date.now() - removeStart;
 
       if (removeError) {
-        logPartyDetailContext('error', 'Failed to remove storage files', {
+        log('error', 'Failed to remove storage files', {
           requestId,
           partyId,
           removeTime: storageRemoveTime,
@@ -622,7 +613,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      logPartyDetailContext('info', 'Storage files removed successfully', {
+      log('info', 'Storage files removed successfully', {
         requestId,
         partyId,
         removeTime: storageRemoveTime,
@@ -638,14 +629,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .eq('party_id', partyId);
 
     if (photoDeleteError) {
-      logPartyDetailContext('warn', 'Failed to delete photo records', {
+      log('warn', 'Failed to delete photo records', {
         requestId,
         partyId,
         photoDeleteTime: Date.now() - photoDeleteStart,
         error: photoDeleteError.message
       });
     } else {
-      logPartyDetailContext('info', 'Photo records deleted', {
+      log('info', 'Photo records deleted', {
         requestId,
         partyId,
         photoDeleteTime: Date.now() - photoDeleteStart
@@ -660,14 +651,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .eq('party_id', partyId);
 
     if (uploaderDeleteError) {
-      logPartyDetailContext('warn', 'Failed to delete uploader records', {
+      log('warn', 'Failed to delete uploader records', {
         requestId,
         partyId,
         uploaderDeleteTime: Date.now() - uploaderDeleteStart,
         error: uploaderDeleteError.message
       });
     } else {
-      logPartyDetailContext('info', 'Uploader records deleted', {
+      log('info', 'Uploader records deleted', {
         requestId,
         partyId,
         uploaderDeleteTime: Date.now() - uploaderDeleteStart
@@ -682,7 +673,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .eq('id', partyId);
 
     if (error) {
-      logPartyDetailContext('error', 'Failed to delete party record', {
+      log('error', 'Failed to delete party record', {
         requestId,
         partyId,
         partyDeleteTime: Date.now() - partyDeleteStart,
@@ -696,7 +687,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     const totalTime = Date.now() - startTime;
-    logPartyDetailContext('info', 'Party deletion completed successfully', {
+    log('info', 'Party deletion completed successfully', {
       requestId,
       partyId,
       fileCount,
@@ -711,7 +702,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: true });
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    logPartyDetailContext('error', 'Unexpected error in party deletion', {
+    log('error', 'Unexpected error in party deletion', {
       requestId,
       partyId: (await params).partyId,
       totalTime,

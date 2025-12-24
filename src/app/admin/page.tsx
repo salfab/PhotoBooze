@@ -37,6 +37,7 @@ import QRCode from 'qrcode';
 import styles from './page.module.css';
 import PartyStatsModal from '@/components/PartyStatsModal';
 import PinEntryModal from '@/components/PinEntryModal';
+import { generatePartyQrCode } from '@/lib/utils/qrcode';
 
 interface Party {
   id: string;
@@ -79,16 +80,11 @@ export default function AdminPage() {
       const qrCodes: Record<string, string> = {};
       for (const party of data) {
         if (party.joinToken) {
-          const joinUrl = `${window.location.origin}/join/${party.id}?token=${party.joinToken}`;
-          const qrDataUrl = await QRCode.toDataURL(joinUrl, {
-            width: 300,
-            margin: 2,
-            color: {
-              dark: '#000000',
-              light: '#ffffff',
-            },
-          });
-          qrCodes[party.id] = qrDataUrl;
+          qrCodes[party.id] = await generatePartyQrCode(
+            party.id,
+            party.joinToken,
+            window.location.origin
+          );
         }
       }
       setQrDataUrls(qrCodes);
@@ -120,15 +116,11 @@ export default function AdminPage() {
       const party: Party & { joinToken: string } = await response.json();
       
       // Generate QR code for the join URL
-      const joinUrl = `${window.location.origin}/join/${party.id}?token=${party.joinToken}`;
-      const qrDataUrl = await QRCode.toDataURL(joinUrl, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff',
-        },
-      });
+      const qrDataUrl = await generatePartyQrCode(
+        party.id,
+        party.joinToken,
+        window.location.origin
+      );
 
       setQrDataUrls(prev => ({ ...prev, [party.id]: qrDataUrl }));
       setParties(prev => [{ ...party, photoCount: 0, uploaderCount: 0 }, ...prev]);
@@ -291,15 +283,11 @@ export default function AdminPage() {
       }
 
       const { joinToken } = await response.json();
-      const joinUrl = `${window.location.origin}/join/${partyId}?token=${joinToken}`;
-      const qrDataUrl = await QRCode.toDataURL(joinUrl, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff',
-        },
-      });
+      const qrDataUrl = await generatePartyQrCode(
+        partyId,
+        joinToken,
+        window.location.origin
+      );
 
       setQrDataUrls(prev => ({ ...prev, [partyId]: qrDataUrl }));
       setParties(prev =>

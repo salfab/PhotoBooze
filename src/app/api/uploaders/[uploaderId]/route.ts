@@ -1,29 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { createLogger, generateRequestId } from '@/lib/logging';
 
-function logUploaderContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
-  const timestamp = new Date().toISOString();
-  const logData = {
-    timestamp,
-    level: level.toUpperCase(),
-    service: 'api.uploaders',
-    message,
-    ...context
-  };
-  console.log(JSON.stringify(logData));
-}
+const log = createLogger('api.uploaders');
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ uploaderId: string }> }
 ) {
-  const requestId = Math.random().toString(36).substring(2, 10);
+  const requestId = generateRequestId();
   const startTime = Date.now();
   
   try {
     const { uploaderId } = await params;
     
-    logUploaderContext('info', 'Uploader details request received', {
+    log('info', 'Uploader details request received', {
       requestId,
       uploaderId
     });
@@ -38,7 +29,7 @@ export async function GET(
       .single();
 
     if (error || !uploader) {
-      logUploaderContext('warn', 'Uploader not found', {
+      log('warn', 'Uploader not found', {
         requestId,
         uploaderId,
         queryTime: Date.now() - queryStart,
@@ -51,7 +42,7 @@ export async function GET(
     }
 
     const totalTime = Date.now() - startTime;
-    logUploaderContext('info', 'Uploader details retrieved successfully', {
+    log('info', 'Uploader details retrieved successfully', {
       requestId,
       uploaderId,
       uploaderName: uploader.display_name,
@@ -63,7 +54,7 @@ export async function GET(
     return NextResponse.json(uploader);
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    logUploaderContext('error', 'Unexpected error in uploader details', {
+    log('error', 'Unexpected error in uploader details', {
       requestId,
       uploaderId: (await params).uploaderId,
       totalTime,

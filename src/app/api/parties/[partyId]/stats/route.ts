@@ -1,17 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { createLogger, generateRequestId } from '@/lib/logging';
 
-function logStatsContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
-  const timestamp = new Date().toISOString();
-  const logData = {
-    timestamp,
-    level: level.toUpperCase(),
-    service: 'api.parties.stats',
-    message,
-    ...context
-  };
-  console.log(JSON.stringify(logData));
-}
+const log = createLogger('api.parties.stats');
 
 interface UploaderStats {
   id: string;
@@ -27,13 +18,13 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ partyId: string }> }
 ) {
-  const requestId = Math.random().toString(36).substring(2, 10);
+  const requestId = generateRequestId();
   const startTime = Date.now();
   
   try {
     const { partyId } = await params;
     
-    logStatsContext('info', 'Party stats request received', {
+    log('info', 'Party stats request received', {
       requestId,
       partyId
     });
@@ -55,7 +46,7 @@ export async function GET(
       .order('created_at', { ascending: true });
 
     if (photosError) {
-      logStatsContext('error', 'Failed to fetch photos for stats', {
+      log('error', 'Failed to fetch photos for stats', {
         requestId,
         partyId,
         photosQueryTime: Date.now() - photosQueryStart,
@@ -65,7 +56,7 @@ export async function GET(
       return NextResponse.json({ error: photosError.message }, { status: 500 });
     }
 
-    logStatsContext('info', 'Photos fetched, getting uploaders', {
+    log('info', 'Photos fetched, getting uploaders', {
       requestId,
       partyId,
       photoCount: photos?.length || 0,
@@ -81,7 +72,7 @@ export async function GET(
       .order('created_at', { ascending: true });
 
     if (uploadersError) {
-      logStatsContext('error', 'Failed to fetch uploaders for stats', {
+      log('error', 'Failed to fetch uploaders for stats', {
         requestId,
         partyId,
         uploadersQueryTime: Date.now() - uploadersQueryStart,
@@ -91,7 +82,7 @@ export async function GET(
       return NextResponse.json({ error: uploadersError.message }, { status: 500 });
     }
 
-    logStatsContext('info', 'Uploaders fetched, building stats', {
+    log('info', 'Uploaders fetched, building stats', {
       requestId,
       partyId,
       uploaderCount: uploaders?.length || 0,
@@ -286,7 +277,7 @@ export async function GET(
   const statsProcessingTime = Date.now() - statsProcessingStart;
   const totalTime = Date.now() - startTime;
   
-  logStatsContext('info', 'Party stats completed successfully', {
+  log('info', 'Party stats completed successfully', {
     requestId,
     partyId,
     totalPhotos: photos?.length || 0,
@@ -309,7 +300,7 @@ export async function GET(
   });
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    logStatsContext('error', 'Unexpected error in party stats', {
+    log('error', 'Unexpected error in party stats', {
       requestId,
       partyId: (await params).partyId,
       totalTime,

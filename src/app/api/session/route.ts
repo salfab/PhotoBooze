@@ -1,27 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession } from '@/lib/auth/session';
+import { createLogger, generateRequestId } from '@/lib/logging';
 
-// Enhanced logging utility
-function logSessionContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, any>) {
-  const timestamp = new Date().toISOString();
-  const logData = {
-    timestamp,
-    level,
-    message,
-    service: 'api/session',
-    ...context
-  };
-  console[level === 'info' ? 'log' : level](`[${timestamp}] SessionAPI:`, message, JSON.stringify(logData, null, 2));
-}
+const log = createLogger('api.session');
 
 export async function GET(request: NextRequest) {
-  const requestId = Math.random().toString(36).substring(2, 10);
+  const requestId = generateRequestId();
   const startTime = Date.now();
   
   try {
     const sessionToken = request.cookies.get('photobooze_session')?.value;
     
-    logSessionContext('info', 'Session check requested', {
+    log('info', 'Session check requested', {
       requestId,
       hasSessionToken: !!sessionToken,
       tokenLength: sessionToken?.length,
@@ -30,7 +20,7 @@ export async function GET(request: NextRequest) {
     });
     
     if (!sessionToken) {
-      logSessionContext('info', 'No session token found', {
+      log('info', 'No session token found', {
         requestId,
         result: 'unauthenticated',
         reason: 'no_token'
@@ -42,7 +32,7 @@ export async function GET(request: NextRequest) {
     const session = await verifySession(sessionToken);
     
     if (!session) {
-      logSessionContext('warn', 'Session verification failed', {
+      log('warn', 'Session verification failed', {
         requestId,
         result: 'unauthenticated',
         reason: 'invalid_session',
@@ -53,7 +43,7 @@ export async function GET(request: NextRequest) {
     }
 
     const totalTime = Date.now() - startTime;
-    logSessionContext('info', 'Session verified successfully', {
+    log('info', 'Session verified successfully', {
       requestId,
       result: 'authenticated',
       partyId: session.partyId,
@@ -69,7 +59,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    logSessionContext('error', 'Session check error', {
+    log('error', 'Session check error', {
       requestId,
       totalTime,
       error: error instanceof Error ? error.message : 'Unknown error',

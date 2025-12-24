@@ -6,8 +6,10 @@ import {
   Typography,
   CircularProgress,
 } from '@mui/material';
-import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/client';
+import { generateQrCodeDataUrl } from '@/lib/utils/qrcode';
+import { useBroadcastCommand, TV_EVENTS } from '@/hooks';
+import { TIMING } from '@/lib/constants';
 import styles from '@/app/upload/[partyId]/page.module.css';
 
 interface ShareTabProps {
@@ -17,21 +19,14 @@ interface ShareTabProps {
 export default function ShareTab({ partyId }: ShareTabProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [showingQR, setShowingQR] = useState(false);
-  const supabaseRef = useRef(createClient());
+  const broadcast = useBroadcastCommand(partyId);
 
   // Generate QR code for party join URL
   useEffect(() => {
     async function generateQR() {
       try {
         const joinUrl = `${window.location.origin}/upload/${partyId}`;
-        const qrDataUrl = await QRCode.toDataURL(joinUrl, {
-          width: 300,
-          margin: 2,
-          color: {
-            dark: '#000000',
-            light: '#ffffff',
-          },
-        });
+        const qrDataUrl = await generateQrCodeDataUrl(joinUrl);
         setQrCodeUrl(qrDataUrl);
       } catch (err) {
         console.error('Failed to generate QR code:', err);
@@ -41,32 +36,17 @@ export default function ShareTab({ partyId }: ShareTabProps) {
   }, [partyId]);
 
   const sendShowQRCommand = useCallback(() => {
-    const supabase = supabaseRef.current;
-    const channel = supabase.channel(`tv-control:${partyId}`);
-    
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log('Sending toggle QR command');
-        channel.send({
-          type: 'broadcast',
-          event: 'toggle-qr',
-          payload: {},
-        });
-        setShowingQR(prev => {
-          const newState = !prev;
-          if (newState) {
-            setTimeout(() => {
-              setShowingQR(false);
-            }, 60000);
-          }
-          return newState;
-        });
+    broadcast(TV_EVENTS.TOGGLE_QR);
+    setShowingQR(prev => {
+      const newState = !prev;
+      if (newState) {
         setTimeout(() => {
-          supabase.removeChannel(channel);
-        }, 500);
+          setShowingQR(false);
+        }, TIMING.QR_OVERLAY_TIMEOUT_MS);
       }
+      return newState;
     });
-  }, [partyId]);
+  }, [broadcast]);
 
   return (
     <Box className={styles.remoteContainer}>

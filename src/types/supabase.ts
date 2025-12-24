@@ -121,6 +121,35 @@ export type Database = {
           },
         ]
       }
+      party_join_tokens: {
+        Row: {
+          id: string
+          party_id: string
+          token: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          party_id: string
+          token: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          party_id?: string
+          token?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_join_tokens_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: true
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       uploaders: {
         Row: {
           created_at: string

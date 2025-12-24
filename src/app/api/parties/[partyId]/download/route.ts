@@ -5,31 +5,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, STORAGE_BUCKET } from '@/lib/supabase/server';
 import archiver from 'archiver';
+import { createLogger, generateRequestId } from '@/lib/logging';
 
-function logDownloadContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
-  const timestamp = new Date().toISOString();
-  const logData = {
-    timestamp,
-    level: level.toUpperCase(),
-    service: 'api.parties.download',
-    message,
-    ...context
-  };
-  console.log(JSON.stringify(logData));
-}
+const log = createLogger('api.parties.download');
 
 interface RouteParams {
   params: Promise<{ partyId: string }>;
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
-  const requestId = Math.random().toString(36).substring(2, 10);
+  const requestId = generateRequestId();
   const startTime = Date.now();
   
   try {
     const { partyId } = await params;
     
-    logDownloadContext('info', 'Party download request received', {
+    log('info', 'Party download request received', {
       requestId,
       partyId
     });
@@ -45,7 +36,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (partyError || !party) {
-      logDownloadContext('warn', 'Party not found for download', {
+      log('warn', 'Party not found for download', {
         requestId,
         partyId,
         queryTime: Date.now() - partyQueryStart,
@@ -57,7 +48,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    logDownloadContext('info', 'Party found, fetching photos', {
+    log('info', 'Party found, fetching photos', {
       requestId,
       partyId,
       partyQueryTime: Date.now() - partyQueryStart
@@ -72,7 +63,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .order('created_at', { ascending: true });
 
     if (photosError) {
-      logDownloadContext('error', 'Failed to fetch photos for download', {
+      log('error', 'Failed to fetch photos for download', {
         requestId,
         partyId,
         photosQueryTime: Date.now() - photosQueryStart,
@@ -86,7 +77,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     if (!photos || photos.length === 0) {
-      logDownloadContext('warn', 'No photos available for download', {
+      log('warn', 'No photos available for download', {
         requestId,
         partyId,
         photosQueryTime: Date.now() - photosQueryStart,
@@ -98,7 +89,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    logDownloadContext('info', 'Photos fetched, creating archive', {
+    log('info', 'Photos fetched, creating archive', {
       requestId,
       partyId,
       photoCount: photos.length,
@@ -133,7 +124,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
         if (downloadError || !fileData) {
           failCount++;
-          logDownloadContext('warn', 'Failed to download individual photo for archive', {
+          log('warn', 'Failed to download individual photo for archive', {
             requestId,
             partyId,
             photoId: photo.id,
@@ -160,7 +151,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         photoIndex++;
       } catch (err) {
         failCount++;
-        logDownloadContext('error', 'Error processing photo for archive', {
+        log('error', 'Error processing photo for archive', {
           requestId,
           partyId,
           photoId: photo.id,
@@ -169,7 +160,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    logDownloadContext('info', 'Photos processed, finalizing archive', {
+    log('info', 'Photos processed, finalizing archive', {
       requestId,
       partyId,
       totalPhotos: photos.length,
@@ -195,7 +186,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const filename = `photobooze_${partyId.slice(0, 8)}_${timestamp}.zip`;
 
     const totalTime = Date.now() - startTime;
-    logDownloadContext('info', 'Download archive completed successfully', {
+    log('info', 'Download archive completed successfully', {
       requestId,
       partyId,
       filename,
@@ -215,7 +206,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    logDownloadContext('error', 'Unexpected error in download', {
+    log('error', 'Unexpected error in download', {
       requestId,
       partyId: (await params).partyId,
       totalTime,

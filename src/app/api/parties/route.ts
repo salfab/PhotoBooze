@@ -1,35 +1,24 @@
 /**
  * GET /api/parties - List all parties with stats
  * POST /api/parties - Create a new party
- * Enhanced with comprehensive logging and error handling
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { generateJoinToken } from '@/lib/auth/tokens';
 import { generateUniquePartyName } from '@/lib/party-names';
 import type { PartyWithOptionalPin } from '@/types/database';
 import { requiresPin } from '@/types/database';
+import { createLogger, generateRequestId } from '@/lib/logging';
 
-// Enhanced logging utility
-function logPartiesContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, any>) {
-  const timestamp = new Date().toISOString();
-  const logData = {
-    timestamp,
-    level,
-    message,
-    service: 'api/parties',
-    ...context
-  };
-  console[level === 'info' ? 'log' : level](`[${timestamp}] PartiesAPI:`, message, JSON.stringify(logData, null, 2));
-}
+const log = createLogger('api.parties');
 
 export async function GET() {
-  const requestId = Math.random().toString(36).substring(2, 10);
+  const requestId = generateRequestId();
   const startTime = Date.now();
   
   try {
-    logPartiesContext('info', 'Parties list request received', {
+    log('info', 'Parties list request received', {
       requestId
     });
     
@@ -47,7 +36,7 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (fullError && (fullError.message?.includes('admin_pin_hash') || fullError.code === '42703')) {
-      logPartiesContext('warn', 'Admin PIN column not found - querying without PIN support', {
+      log('warn', 'Admin PIN column not found - querying without PIN support', {
         requestId,
         queryTime: Date.now() - partiesQueryStart,
         originalError: fullError.message
@@ -69,7 +58,7 @@ export async function GET() {
     }
 
     if (error) {
-      logPartiesContext('error', 'Failed to fetch parties', {
+      log('error', 'Failed to fetch parties', {
         requestId,
         queryTime: Date.now() - partiesQueryStart,
         error: error.message,
@@ -82,7 +71,7 @@ export async function GET() {
       );
     }
 
-    logPartiesContext('info', 'Parties fetched, getting counts', {
+    log('info', 'Parties fetched, getting counts', {
       requestId,
       partiesCount: parties?.length || 0,
       partiesQueryTime: Date.now() - partiesQueryStart
@@ -103,7 +92,7 @@ export async function GET() {
           .eq('party_id', party.id);
 
         if (photoError || uploaderError) {
-          logPartiesContext('warn', 'Failed to get counts for party', {
+          log('warn', 'Failed to get counts for party', {
             requestId,
             partyId: party.id,
             photoError: photoError?.message,
@@ -124,7 +113,7 @@ export async function GET() {
     );
 
     const totalTime = Date.now() - startTime;
-    logPartiesContext('info', 'Parties list completed successfully', {
+    log('info', 'Parties list completed successfully', {
       requestId,
       partiesReturned: partiesWithCounts.length,
       countsQueryTime: Date.now() - countsQueryStart,
@@ -134,7 +123,7 @@ export async function GET() {
     return NextResponse.json(partiesWithCounts);
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    logPartiesContext('error', 'Unexpected error in parties list', {
+    log('error', 'Unexpected error in parties list', {
       requestId,
       totalTime,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -153,7 +142,7 @@ export async function POST() {
   const startTime = Date.now();
   
   try {
-    logPartiesContext('info', 'Party creation request received', {
+    log('info', 'Party creation request received', {
       requestId
     });
     
@@ -164,7 +153,7 @@ export async function POST() {
     const joinToken = generateJoinToken();
     const tokenTime = Date.now() - tokenGenerationStart;
 
-    logPartiesContext('info', 'Tokens generated, creating unique party name', {
+    log('info', 'Tokens generated, creating unique party name', {
       requestId,
       tokenGenerationTime: tokenTime
     });
@@ -181,7 +170,7 @@ export async function POST() {
     });
     const nameGenerationTime = Date.now() - nameGenerationStart;
 
-    logPartiesContext('info', 'Unique party name generated, creating party', {
+    log('info', 'Unique party name generated, creating party', {
       requestId,
       partyName,
       nameGenerationTime
@@ -199,7 +188,7 @@ export async function POST() {
       .single();
 
     if (error) {
-      logPartiesContext('error', 'Failed to create party in database', {
+      log('error', 'Failed to create party in database', {
         requestId,
         partyCreationTime: Date.now() - partyCreationStart,
         error: error.message,
@@ -215,14 +204,14 @@ export async function POST() {
     // Store the join token in the separate table
     const tokenStoreStart = Date.now();
     const { error: tokenError } = await supabase
-      .from('party_join_tokens' as any)
+      .from('party_join_tokens')
       .insert({
         party_id: party.id,
         token: joinToken
       });
 
     if (tokenError) {
-      logPartiesContext('error', 'Failed to store join token', {
+      log('error', 'Failed to store join token', {
         requestId,
         partyId: party.id,
         tokenStoreTime: Date.now() - tokenStoreStart,
@@ -240,7 +229,7 @@ export async function POST() {
     }
 
     const totalTime = Date.now() - startTime;
-    logPartiesContext('info', 'Party created successfully', {
+    log('info', 'Party created successfully', {
       requestId,
       partyId: party.id,
       partyName: party.name,
@@ -260,7 +249,7 @@ export async function POST() {
     });
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    logPartiesContext('error', 'Unexpected error in party creation', {
+    log('error', 'Unexpected error in party creation', {
       requestId,
       totalTime,
       error: error instanceof Error ? error.message : 'Unknown error',

@@ -1,34 +1,24 @@
 /**
- * POST /api/join - Join a party as a guest with comprehensive logging
+ * POST /api/join - Join a party as a guest
  * Validates the join token, creates an uploader record, and sets session cookie
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { verifyJoinToken, setSessionCookie } from '@/lib/auth';
+import { setSessionCookie } from '@/lib/auth';
+import { createLogger, generateRequestId } from '@/lib/logging';
 
-// Enhanced logging utility
-function logJoinContext(level: 'info' | 'warn' | 'error', message: string, context: Record<string, any>) {
-  const timestamp = new Date().toISOString();
-  const logData = {
-    timestamp,
-    level,
-    message,
-    service: 'api/join',
-    ...context
-  };
-  console[level === 'info' ? 'log' : level](`[${timestamp}] JoinAPI:`, message, JSON.stringify(logData, null, 2));
-}
+const log = createLogger('api.join');
 
 export async function POST(request: NextRequest) {
-  const requestId = Math.random().toString(36).substring(2, 10);
+  const requestId = generateRequestId();
   const startTime = Date.now();
   
   try {
     const body = await request.json();
     const { partyId, token, displayName, confirm } = body;
 
-    logJoinContext('info', 'Join request received', {
+    log('info', 'Join request received', {
       requestId,
       partyId,
       hasToken: !!token,
@@ -40,7 +30,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!partyId || !token) {
-      logJoinContext('error', 'Missing required parameters', {
+      log('error', 'Missing required parameters', {
         requestId,
         partyId: !!partyId,
         hasToken: !!token,
@@ -63,7 +53,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (partyError || !party) {
-      logJoinContext('error', 'Party lookup failed', {
+      log('error', 'Party lookup failed', {
         requestId,
         partyId,
         error: partyError?.message,
@@ -78,12 +68,12 @@ export async function POST(request: NextRequest) {
 
     // Get the join token for this party
     const { data: tokenData, error: tokenError } = await supabase
-      .from('party_join_tokens' as any)
+      .from('party_join_tokens')
       .select('token')
       .eq('party_id', partyId)
-      .single() as { data: { token: string } | null; error: any };
+      .single();
 
-    logJoinContext('info', 'Party and token query completed', {
+    log('info', 'Party and token query completed', {
       requestId,
       partyId,
       partyQueryTime: Date.now() - partyQueryStart,
@@ -94,7 +84,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (party.status !== 'active') {
-      logJoinContext('warn', 'Attempted to join inactive party', {
+      log('warn', 'Attempted to join inactive party', {
         requestId,
         partyId,
         partyStatus: party.status,
@@ -108,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     // Verify the join token
     if (tokenError || !tokenData?.token) {
-      logJoinContext('error', 'Party missing join token', {
+      log('error', 'Party missing join token', {
         requestId,
         partyId,
         configurationError: 'no_join_token',
@@ -124,7 +114,7 @@ export async function POST(request: NextRequest) {
     const storedToken = tokenData.token;
     const tokenValid = token === storedToken; // Direct comparison instead of hash verification
     
-    logJoinContext('info', 'Token verification completed', {
+    log('info', 'Token verification completed', {
       requestId,
       partyId,
       tokenValid,
@@ -133,7 +123,7 @@ export async function POST(request: NextRequest) {
     });
     
     if (!tokenValid) {
-      logJoinContext('warn', 'Invalid join token attempt', {
+      log('warn', 'Invalid join token attempt', {
         requestId,
         partyId,
         tokenLength: token.length,
@@ -162,7 +152,7 @@ export async function POST(request: NextRequest) {
       if (existingUploader) {
         // If existing uploader found but no confirmation, ask for confirmation
         if (!confirm) {
-          logJoinContext('info', 'Existing uploader found, requesting confirmation', {
+          log('info', 'Existing uploader found, requesting confirmation', {
             requestId,
             partyId,
             uploaderId: existingUploader.id,
@@ -182,7 +172,7 @@ export async function POST(request: NextRequest) {
         // Confirmation provided, return the existing uploader
         uploader = existingUploader;
         
-        logJoinContext('info', 'Confirmed return of existing uploader', {
+        log('info', 'Confirmed return of existing uploader', {
           requestId,
           partyId,
           uploaderId: uploader.id,
@@ -208,7 +198,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (uploaderError || !uploader) {
-      logJoinContext('error', 'Failed to create uploader record', {
+      log('error', 'Failed to create uploader record', {
         requestId,
         partyId,
         displayName,
@@ -223,7 +213,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    logJoinContext('info', 'Uploader created successfully', {
+    log('info', 'Uploader created successfully', {
       requestId,
       partyId,
       uploaderId: uploader.id,
@@ -236,7 +226,7 @@ export async function POST(request: NextRequest) {
     await setSessionCookie(partyId, uploader.id);
 
     const totalTime = Date.now() - startTime;
-    logJoinContext('info', 'Join completed successfully', {
+    log('info', 'Join completed successfully', {
       requestId,
       partyId,
       uploaderId: uploader.id,
@@ -257,7 +247,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    logJoinContext('error', 'Unexpected join error', {
+    log('error', 'Unexpected join error', {
       requestId: Math.random().toString(36).substring(2, 10),
       totalTime,
       error: error instanceof Error ? error.message : 'Unknown error',

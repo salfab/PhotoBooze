@@ -137,23 +137,11 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
       // Small delay for better UX - user can see the last digit before submit
       const timer = setTimeout(() => {
         handleSubmit();
-      }, 300);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isComplete, open, handleSubmit]);
-
-  // Auto-submit when PIN is complete
-  useEffect(() => {
-    if (isComplete && open) {
-      // Small delay for better UX - user can see the last digit before submit
-      const timer = setTimeout(() => {
-        handleSubmit();
       }, 150);
       
       return () => clearTimeout(timer);
     }
-  }, [isComplete, open]);
+  }, [isComplete, open, handleSubmit]);
 
   return (
     <Dialog 
