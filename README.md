@@ -22,6 +22,12 @@ A party photo sharing app where guests scan a QR code to upload photos, which ar
 - **Image Processing**: heic2any, canvas resize (client-side)
 - **Real-time**: Supabase Realtime (websockets)
 
+## Documentation
+
+- **[Architecture: Next.js & React](docs/architecture/nextjs-react-architecture.md)** - How server/client components work, rendering strategies, and data flow
+- **[ADRs](docs/adr/)** - Architecture Decision Records for key technical choices
+- **[Future Improvements](docs/future-improvements/)** - Planned enhancements
+
 ## Quick Start
 
 ### Prerequisites

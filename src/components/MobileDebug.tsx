@@ -149,7 +149,7 @@ export default function MobileDebug() {
         onClick={() => setIsOpen(true)}
         sx={{
           position: 'fixed',
-          bottom: 16,
+          top: 16,
           right: 16,
           zIndex: 9999,
           opacity: 0.8,
