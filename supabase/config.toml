@@ -107,7 +107,7 @@ file_size_limit = "50MiB"
 
 # PhotoBooze images bucket
 [storage.buckets.photobooze-images]
-public = false
+public = true
 file_size_limit = "25MiB"
 allowed_mime_types = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]
 

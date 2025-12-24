@@ -67,10 +67,26 @@ try {
     process.exit(1);
   }
 
-  const bucketExists = buckets.some(b => b.name === bucketName);
+  const existingBucket = buckets.find(b => b.name === bucketName);
 
-  if (bucketExists) {
+  if (existingBucket) {
     console.log('✅ Storage bucket already exists');
+    
+    // Ensure the bucket is public
+    if (!existingBucket.public) {
+      console.log('⚠️  Bucket is not public, updating...');
+      const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
+        public: true,
+        fileSizeLimit: 26214400,
+        allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'],
+      });
+      
+      if (updateError) {
+        console.error('❌ Error updating bucket to public:', updateError.message);
+        process.exit(1);
+      }
+      console.log('✅ Bucket updated to public');
+    }
   } else {
     const { error } = await supabase.storage.createBucket(bucketName, {
       public: true,
