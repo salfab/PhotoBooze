@@ -6,8 +6,7 @@ CREATE TABLE parties (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'closed')),
-    closed_at TIMESTAMPTZ,
-    join_token_hash TEXT NOT NULL
+    closed_at TIMESTAMPTZ
 );
 
 -- Index for looking up parties by status
