@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const partyQueryStart = Date.now();
     const { data: party, error } = await supabase
       .from('parties')
-      .select('id, name, status, created_at, countdown_target')
+      .select('id, name, status, created_at, countdown_target, background')
       .eq('id', partyId)
       .single();
 
@@ -95,6 +95,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       status: party.status,
       createdAt: party.created_at,
       countdownTarget: party.countdown_target,
+      background: party.background,
       photoCount: photoCount ?? 0,
       uploaderCount: uploaderCount ?? 0,
     });
