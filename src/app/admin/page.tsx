@@ -21,9 +21,7 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
-  QrCode2 as QrCodeIcon,
   Tv as TvIcon,
-  Download as DownloadIcon,
   Delete as DeleteIcon,
   Stop as StopIcon,
   Edit as EditIcon,
@@ -574,32 +572,12 @@ export default function AdminPage() {
                     disabled={party.status === 'closed'}
                   />
                 </Box>
-              ) : (
-                <Box className={styles.qrContainer}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<QrCodeIcon />}
-                    onClick={() => generateQrCode(party.id)}
-                  >
-                    Show QR Code
-                  </Button>
-                  <Typography variant="caption" color="text.secondary">
-                    Reveal the join QR code for this party
-                  </Typography>
-                </Box>
               )}
 
               <Box className={styles.actions}>
                 <Tooltip title="Open TV Display">
                   <IconButton onClick={() => openTvView(party.id, party.joinToken)} color="primary">
                     <TvIcon />
-                  </IconButton>
-                </Tooltip>
-
-                <Tooltip title="Show QR Code">
-                  <IconButton color="primary">
-                    <QrCodeIcon />
                   </IconButton>
                 </Tooltip>
 
@@ -610,12 +588,6 @@ export default function AdminPage() {
                     </IconButton>
                   </Tooltip>
                 )}
-
-                <Tooltip title="Download All Photos">
-                  <IconButton onClick={() => downloadPhotos(party.id)} color="primary">
-                    <DownloadIcon />
-                  </IconButton>
-                </Tooltip>
 
                 <Tooltip title="Delete Party">
                   <IconButton onClick={() => deleteParty(party.id)} color="error">
