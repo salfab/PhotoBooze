@@ -37,6 +37,7 @@ export type Database = {
       parties: {
         Row: {
           admin_pin_hash: string | null
+          background: string | null
           closed_at: string | null
           countdown_target: string | null
           created_at: string
@@ -46,6 +47,7 @@ export type Database = {
         }
         Insert: {
           admin_pin_hash?: string | null
+          background?: string | null
           closed_at?: string | null
           countdown_target?: string | null
           created_at?: string
@@ -55,6 +57,7 @@ export type Database = {
         }
         Update: {
           admin_pin_hash?: string | null
+          background?: string | null
           closed_at?: string | null
           countdown_target?: string | null
           created_at?: string
@@ -63,6 +66,35 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      party_join_tokens: {
+        Row: {
+          created_at: string | null
+          id: string
+          party_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          party_id: string
+          token: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          party_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_join_tokens_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       photos: {
         Row: {
@@ -117,35 +149,6 @@ export type Database = {
             columns: ["uploader_id"]
             isOneToOne: false
             referencedRelation: "uploaders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      party_join_tokens: {
-        Row: {
-          id: string
-          party_id: string
-          token: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          party_id: string
-          token: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          party_id?: string
-          token?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "party_join_tokens_party_id_fkey"
-            columns: ["party_id"]
-            isOneToOne: true
-            referencedRelation: "parties"
             referencedColumns: ["id"]
           },
         ]

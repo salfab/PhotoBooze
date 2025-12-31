@@ -1,6 +1,6 @@
 /**
  * GET /api/parties/[partyId] - Get party details
- * PATCH /api/parties/[partyId] - Update party name or status
+ * PATCH /api/parties/[partyId] - Update party name, status, background, or countdown
  * DELETE /api/parties/[partyId] - Delete party and all data
  */
 
@@ -267,6 +267,67 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         name: party.name,
         status: party.status,
         createdAt: party.created_at,
+      });
+    }
+
+    // Handle background updates
+    if (body.background !== undefined) {
+      const validBackgrounds = ['art-deco.jpg', 'berlin.jpg', 'cossonay.jpg', 'new-years-eve.jpg'];
+      
+      if (!validBackgrounds.includes(body.background)) {
+        log('warn', 'Invalid background provided', {
+          requestId,
+          partyId,
+          providedBackground: body.background
+        });
+        return NextResponse.json(
+          { error: 'Invalid background. Must be one of: ' + validBackgrounds.join(', ') },
+          { status: 400 }
+        );
+      }
+
+      log('info', 'Processing background update', {
+        requestId,
+        partyId,
+        newBackground: body.background
+      });
+      
+      const updateStart = Date.now();
+      const { data: party, error } = await supabase
+        .from('parties')
+        .update({ background: body.background })
+        .eq('id', partyId)
+        .select('id, name, status, created_at, background')
+        .single();
+
+      if (error || !party) {
+        log('error', 'Failed to update party background', {
+          requestId,
+          partyId,
+          updateTime: Date.now() - updateStart,
+          error: error?.message
+        });
+        return NextResponse.json(
+          { error: 'Party not found' },
+          { status: 404 }
+        );
+      }
+
+      const totalTime = Date.now() - startTime;
+      log('info', 'Party background updated successfully', {
+        requestId,
+        partyId,
+        newBackground: party.background,
+        updateTime: Date.now() - updateStart,
+        totalTime
+      });
+
+      return NextResponse.json({
+        id: party.id,
+        name: party.name,
+        status: party.status,
+        createdAt: party.created_at,
+        background: party.background,
       });
     }
 

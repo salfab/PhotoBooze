@@ -77,6 +77,7 @@ export default function TvPage() {
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
   const [lastPhotoTime, setLastPhotoTime] = useState<number>(Date.now());
   const [idlePromptsEnabled, setIdlePromptsEnabled] = useState(true);
+  const [background, setBackground] = useState<string>('new-years-eve.jpg');
   
   const supabase = useMemo(() => createClient(), []);
   const stateChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -172,6 +173,7 @@ export default function TvPage() {
         if (response.ok) {
           const party = await response.json();          
           setCountdownTarget(party.countdownTarget);
+          setBackground(party.background || 'new-years-eve.jpg');
           
           if (party.countdownTarget) {
             const target = new Date(party.countdownTarget);
@@ -199,7 +201,38 @@ export default function TvPage() {
     }
 
     loadPartyData();
-  }, [partyId]);
+
+    // Subscribe to party updates (background, countdown, etc.)
+    const channel = supabase
+      .channel(`party:${partyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'parties',
+          filter: `id=eq.${partyId}`,
+        },
+        (payload) => {
+          console.log('🎨 Party updated:', payload.new);
+          const updatedParty = payload.new as { background?: string; countdown_target?: string };
+          
+          if (updatedParty.background) {
+            console.log(`🎨 Background changed to: ${updatedParty.background}`);
+            setBackground(updatedParty.background);
+          }
+          
+          if (updatedParty.countdown_target !== undefined) {
+            setCountdownTarget(updatedParty.countdown_target);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [partyId, supabase]);
 
   // Load initial photos
   useEffect(() => {
@@ -505,7 +538,15 @@ export default function TvPage() {
 
   if (loading) {
     return (
-      <Box className={styles.container}>
+      <Box 
+        className={styles.container}
+        sx={{
+          backgroundImage: `url('/backgrounds/${background}')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
         <CircularProgress size={60} sx={{ color: 'white' }} />
         <Typography variant="h6" sx={{ mt: 2, color: 'white' }}>
           Loading slideshow...
@@ -516,7 +557,15 @@ export default function TvPage() {
 
   if (error) {
     return (
-      <Box className={styles.container}>
+      <Box 
+        className={styles.container}
+        sx={{
+          backgroundImage: `url('/backgrounds/${background}')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
         <Typography variant="h4" color="error">
           {error}
         </Typography>
@@ -526,7 +575,15 @@ export default function TvPage() {
 
   if (photos.length === 0) {
     return (
-      <Box className={styles.container}>
+      <Box 
+        className={styles.container}
+        sx={{
+          backgroundImage: `url('/backgrounds/${background}')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
         <Box sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -677,7 +734,15 @@ export default function TvPage() {
   const visiblePhotos = photos.slice(startIdx, currentIndex + 1);
 
   return (
-    <Box className={styles.container}>
+    <Box 
+      className={styles.container}
+      sx={{
+        backgroundImage: `url('/backgrounds/${background}')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
       {/* Photo stack */}
       <Box className={`${styles.stackContainer} ${isFullscreen ? styles.blurred : ''}`}>
         <AnimatePresence>

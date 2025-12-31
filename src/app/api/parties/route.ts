@@ -32,7 +32,7 @@ export async function GET() {
     // Try with admin_pin_hash first
     const { data: fullParties, error: fullError } = await supabase
       .from('parties')
-      .select('id, name, status, created_at, admin_pin_hash')
+      .select('id, name, status, created_at, admin_pin_hash, background')
       .order('created_at', { ascending: false });
 
     if (fullError && (fullError.message?.includes('admin_pin_hash') || fullError.code === '42703')) {
@@ -45,7 +45,7 @@ export async function GET() {
       // Fallback to basic query without admin_pin_hash
       const { data: basicParties, error: basicError } = await supabase
         .from('parties')
-        .select('id, name, status, created_at')
+        .select('id, name, status, created_at, background')
         .order('created_at', { ascending: false });
       
       // Map to PartyWithOptionalPin type (admin_pin_hash will be undefined)
@@ -184,7 +184,7 @@ export async function POST() {
         name: partyName,
         status: 'active'
       })
-      .select('id, name, status, created_at')
+      .select('id, name, status, created_at, background')
       .single();
 
     if (error) {

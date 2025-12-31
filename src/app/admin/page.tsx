@@ -37,6 +37,7 @@ import QRCode from 'qrcode';
 import styles from './page.module.css';
 import PartyStatsModal from '@/components/PartyStatsModal';
 import PinEntryModal from '@/components/PinEntryModal';
+import BackgroundSelector from '@/components/BackgroundSelector';
 import { generatePartyQrCode } from '@/lib/utils/qrcode';
 
 interface Party {
@@ -49,6 +50,7 @@ interface Party {
   uploaderCount?: number;
   countdownTarget?: string | null;
   requiresPin?: boolean;
+  background?: string;
 }
 
 export default function AdminPage() {
@@ -382,6 +384,27 @@ export default function AdminPage() {
     }
   }, []);
 
+  const handleBackgroundChange = useCallback(async (partyId: string, background: string) => {
+    try {
+      const response = await fetch(`/api/parties/${partyId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ background }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update background');
+      }
+
+      const updatedParty = await response.json();
+      setParties(prev =>
+        prev.map(p => (p.id === partyId ? { ...p, background: updatedParty.background } : p))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update background');
+    }
+  }, []);
+
   return (
     <Container maxWidth="md" className={styles.container}>
       <Box className={styles.header}>
@@ -544,6 +567,12 @@ export default function AdminPage() {
                   <Typography variant="caption" color="text.secondary">
                     Guests scan this QR code to join
                   </Typography>
+                  
+                  <BackgroundSelector
+                    selected={party.background || 'new-years-eve.jpg'}
+                    onChange={(bg) => handleBackgroundChange(party.id, bg)}
+                    disabled={party.status === 'closed'}
+                  />
                 </Box>
               ) : (
                 <Box className={styles.qrContainer}>
