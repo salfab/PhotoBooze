@@ -18,6 +18,11 @@ import {
   TextField,
   Skeleton,
   Switch,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -64,6 +69,7 @@ export default function AdminPage() {
   const [pinModal, setPinModal] = useState<{ open: boolean; partyId: string | null; mode: 'set' | 'verify' | 'remove' }>({ open: false, partyId: null, mode: 'verify' });
   const [pinError, setPinError] = useState<string>('');
   const [pendingQrGeneration, setPendingQrGeneration] = useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ open: boolean; partyId: string | null; partyName: string | null }>({ open: false, partyId: null, partyName: null });
 
   const loadParties = useCallback(async () => {
     try {
@@ -218,10 +224,11 @@ export default function AdminPage() {
     setEditedName('');
   }, []);
 
-  const deleteParty = useCallback(async (partyId: string) => {
-    if (!confirm('Are you sure you want to delete this party and all its photos?')) {
-      return;
-    }
+  const confirmDeleteParty = useCallback(async () => {
+    const partyId = deleteConfirmation.partyId;
+    if (!partyId) return;
+
+    setDeleteConfirmation({ open: false, partyId: null, partyName: null });
 
     try {
       const response = await fetch(`/api/parties/${partyId}`, {
@@ -241,7 +248,12 @@ export default function AdminPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete party');
     }
-  }, []);
+  }, [deleteConfirmation.partyId]);
+
+  const deleteParty = useCallback((partyId: string) => {
+    const party = parties.find(p => p.id === partyId);
+    setDeleteConfirmation({ open: true, partyId, partyName: party?.name || null });
+  }, [parties]);
 
   const openTvView = useCallback((partyId: string, joinToken?: string) => {
     const url = joinToken ? `/tv/${partyId}?token=${joinToken}` : `/tv/${partyId}`;
@@ -674,6 +686,39 @@ export default function AdminPage() {
         mode={pinModal.mode}
         error={pinError}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmation.open}
+        onClose={() => setDeleteConfirmation({ open: false, partyId: null, partyName: null })}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete Party?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete{' '}
+            <strong>{deleteConfirmation.partyName || 'this party'}</strong> and all its photos?
+            This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setDeleteConfirmation({ open: false, partyId: null, partyName: null })}
+            color="inherit"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={confirmDeleteParty}
+            color="error"
+            variant="contained"
+            autoFocus
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
