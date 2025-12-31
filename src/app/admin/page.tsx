@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
+  QrCode2 as QrCodeIcon,
   Tv as TvIcon,
   Delete as DeleteIcon,
   Stop as StopIcon,
@@ -571,6 +572,20 @@ export default function AdminPage() {
                     onChange={(bg) => handleBackgroundChange(party.id, bg)}
                     disabled={party.status === 'closed'}
                   />
+                </Box>
+              ) : (
+                <Box className={styles.qrContainer}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<QrCodeIcon />}
+                    onClick={() => generateQrCode(party.id)}
+                  >
+                    Show QR Code
+                  </Button>
+                  <Typography variant="caption" color="text.secondary">
+                    Reveal the join QR code for this party
+                  </Typography>
                 </Box>
               )}
 
