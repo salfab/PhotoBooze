@@ -143,6 +143,21 @@ export default function PinEntryModal({ open, onClose, onSubmit, mode, error }: 
     }
   }, [isComplete, open, handleSubmit]);
 
+  // Clear PIN inputs when error occurs
+  useEffect(() => {
+    if (error) {
+      resetInputs();
+      // Focus first input after clearing
+      setTimeout(() => {
+        if (mode === 'remove') {
+          inputRefs.current[6]?.focus();
+        } else {
+          inputRefs.current[0]?.focus();
+        }
+      }, 100);
+    }
+  }, [error, mode]);
+
   return (
     <Dialog 
       open={open} 
