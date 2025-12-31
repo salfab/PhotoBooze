@@ -23,8 +23,21 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      - name: Repair migration history
-        run: supabase migration repair --status reverted 20241223000003 || true
+      - name: Repair migration history for consolidated schema
+        run: |
+          # Mark all old migrations as reverted since we consolidated into a single migration
+          supabase migration repair --status reverted 20241221000000 || true
+          supabase migration repair --status reverted 20241221000001 || true
+          supabase migration repair --status reverted 20241221000002 || true
+          supabase migration repair --status reverted 20241221000003 || true
+          supabase migration repair --status reverted 20241222000003 || true
+          supabase migration repair --status reverted 20241222000004 || true
+          supabase migration repair --status reverted 20241222000005 || true
+          supabase migration repair --status reverted 20241223000001 || true
+          supabase migration repair --status reverted 20241223000002 || true
+          supabase migration repair --status reverted 20241223000003 || true
+          supabase migration repair --status reverted 20241231000001 || true
+          supabase migration repair --status reverted 20241231000002 || true
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
